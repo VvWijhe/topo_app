@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -92,7 +93,7 @@ fun NightMap(
     val breathe by anim.animateFloat(0.55f, 1f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breathe")
     val pulse by anim.animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "pulse")
 
-    BoxWithConstraints(modifier) {
+    BoxWithConstraints(modifier.clipToBounds()) {
         val size = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
         val tf = remember(size, viewport) { MapTransform.fit(size, viewport) }
         Canvas(
