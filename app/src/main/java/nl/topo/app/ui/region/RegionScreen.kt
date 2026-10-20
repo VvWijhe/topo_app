@@ -154,7 +154,11 @@ private fun TopicRow(region: Region, topic: Topic, progress: Progress, onPlay: (
             Spacer(Modifier.width(10.dp))
             Column {
                 Text(topic.name, style = MaterialTheme.typography.titleSmall, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(topic.description, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (Content.isPlayable(region, topic.id)) {
+                    Text("Speelbaar · ${topic.description}", style = MaterialTheme.typography.bodySmall, color = Night.glow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                } else {
+                    Text("Binnenkort · ${topic.description}", style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         Levels.all.forEach { lv ->
