@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import nl.topo.app.data.geo.Continent
 import nl.topo.app.data.geo.Country
 import nl.topo.app.data.geo.WorldMap
+import nl.topo.app.data.i18n.Lang
 import java.text.Normalizer
 import kotlin.math.max
 import kotlin.math.min
@@ -57,14 +58,14 @@ object FlagQuiz {
     // ---------- zelf typen (★★★★) ----------
 
     private val aliases: Map<String, List<String>> = mapOf(
-        "USA" to listOf("vs", "usa", "amerika", "verenigde staten van amerika"),
-        "GBR" to listOf("vk", "uk", "groot-brittannie", "engeland", "brittannie"),
-        "BLR" to listOf("wit-rusland", "witrusland"),
-        "CZE" to listOf("tsjechie", "tsjechische republiek"),
-        "NLD" to listOf("holland"),
-        "CIV" to listOf("ivoorkust", "cote d'ivoire"),
-        "COD" to listOf("dr congo", "democratische republiek congo", "congo kinshasa"),
-        "COG" to listOf("congo", "republiek congo", "congo brazzaville"),
+        "USA" to listOf("vs", "usa", "us", "amerika", "america", "verenigde staten van amerika", "united states of america"),
+        "GBR" to listOf("vk", "uk", "groot-brittannie", "great britain", "britain", "engeland", "england", "brittannie"),
+        "BLR" to listOf("wit-rusland", "witrusland", "belorussia", "byelorussia"),
+        "CZE" to listOf("tsjechie", "tsjechische republiek", "czech republic"),
+        "NLD" to listOf("holland", "the netherlands"),
+        "CIV" to listOf("ivoorkust", "cote d'ivoire", "côte d'ivoire"),
+        "COD" to listOf("dr congo", "drc", "democratische republiek congo", "democratic republic of the congo", "congo kinshasa"),
+        "COG" to listOf("congo", "republiek congo", "congo brazzaville", "congo-brazzaville"),
         "MKD" to listOf("macedonie"),
         "ARE" to listOf("vae", "emiraten"),
         "KOR" to listOf("korea"),
@@ -72,10 +73,10 @@ object FlagQuiz {
         "SWZ" to listOf("swaziland"),
         "TLS" to listOf("timor-leste", "oost timor"),
         "BIH" to listOf("bosnie", "bosnie-herzegovina"),
-        "VAT" to listOf("vaticaan"),
         "PSE" to listOf("palestijnse gebieden"),
         "CPV" to listOf("kaapverdie"),
-        "TUR" to listOf("turkiye"),
+        "TUR" to listOf("turkiye", "türkiye"),
+        "VAT" to listOf("vaticaan", "vatican", "holy see"),
     )
 
     private fun fold(s: String): String =
@@ -85,7 +86,8 @@ object FlagQuiz {
     fun matches(typed: String, c: Country): Boolean {
         val t = fold(typed)
         if (t.isEmpty()) return false
-        val names = listOf(c.name) + aliases[c.code].orEmpty()
+        // Goed in elke taal van de app, plus bekende andere namen.
+        val names = Lang.entries.map { c.name(it) } + aliases[c.code].orEmpty()
         return names.any { n ->
             val f = fold(n)
             // Eén tikfout is goed bij langere namen.

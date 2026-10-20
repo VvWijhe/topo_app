@@ -2,6 +2,8 @@ package nl.topo.app.data.geo
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import nl.topo.app.data.i18n.Lang
+import nl.topo.app.data.i18n.Txt
 
 /** Werelddelen zoals in de kaartdata (EU, AS, AF, NA, SA, OC). */
 enum class Continent(val code: String) {
@@ -15,10 +17,11 @@ enum class Continent(val code: String) {
 data class Country(
     /** ISO-code met drie letters (NLD, DEU …). Kosovo = KOS. */
     val code: String,
-    val name: String,
-    /** ISO-code met twee letters, voor de vlag-emoji. */
+    /** Naam in elke taal. */
+    val names: Txt,
+    /** ISO-code met twee letters, voor de vlag. */
     val iso2: String,
-    val capital: String?,
+    val capitals: Txt?,
     val capitalPos: Offset?,
     val population: Long,
     val areaKm2: Double?,
@@ -31,14 +34,22 @@ data class Country(
     /** Onafhankelijke staat (Groenland, Westelijke Sahara … niet). */
     val sovereign: Boolean,
 ) {
-    /** 🇳🇱 uit "NL". */
+    fun name(lang: Lang): String = names[lang]
+    fun capital(lang: Lang): String? = capitals?.get(lang)
+
+    /** Bestandsnaam van de vlag in assets/flags. */
+    val flagAsset: String get() = "flags/${iso2.lowercase()}.webp"
+
+    /** 🇳🇱 uit "NL" (reserve, als de afbeelding ontbreekt). */
     val flag: String
         get() = if (iso2.length != 2) "🏳️" else buildString {
             iso2.uppercase().forEach { c -> appendCodePoint(0x1F1E6 + (c - 'A')) }
         }
 }
 
-data class ContinentInfo(val continent: Continent, val name: String, val viewport: Rect, val center: Offset)
+data class ContinentInfo(val continent: Continent, val names: Txt, val viewport: Rect, val center: Offset) {
+    fun name(lang: Lang): String = names[lang]
+}
 
 class WorldMap(
     val geo: GeoMap,
@@ -49,9 +60,9 @@ class WorldMap(
     val worldViewport: Rect = Rect(0f, geo.height * 0.04f, geo.width, geo.height * 0.84f)
 
     private val byContinent: Map<Continent, List<Country>> =
-        Continent.entries.associateWith { c -> countries.values.filter { c in it.continents }.sortedWith(compareBy(DUTCH) { it.name }) }
+        Continent.entries.associateWith { c -> countries.values.filter { c in it.continents } }
 
-    val all: List<Country> = countries.values.sortedWith(compareBy(DUTCH) { it.name })
+    val all: List<Country> = countries.values.toList()
 
     fun countriesIn(c: Continent?): List<Country> = if (c == null) all else byContinent[c].orEmpty()
 
@@ -62,7 +73,4 @@ class WorldMap(
         return pool.minByOrNull { (it.label - p).getDistance() }?.takeIf { (it.label - p).getDistance() <= maxDist }
     }
 
-    companion object {
-        val DUTCH: java.text.Collator = java.text.Collator.getInstance(java.util.Locale("nl", "NL"))
-    }
 }

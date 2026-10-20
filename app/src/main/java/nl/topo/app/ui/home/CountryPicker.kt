@@ -2,6 +2,7 @@ package nl.topo.app.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,8 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import nl.topo.app.data.geo.Country
+import nl.topo.app.data.i18n.Lang
+import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.i18n.tr
+import nl.topo.app.ui.components.FlagImage
 import nl.topo.app.ui.components.Eyebrow
 import nl.topo.app.ui.theme.Night
 import java.text.Normalizer
@@ -53,11 +57,15 @@ private fun fold(s: String): String =
 fun CountryPicker(title: String, countries: List<Country>, onDismiss: () -> Unit, onPick: (Country) -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by rememberSaveable { mutableStateOf("") }
-    val shown = remember(query, countries) {
+    val lang = LocalLang.current
+    val sorted = remember(countries, lang) { countries.sortedWith(compareBy(lang.collator) { it.name(lang) }) }
+    val shown = remember(query, sorted, lang) {
         val q = fold(query.trim())
-        if (q.isEmpty()) countries
-        else countries.filter { fold(it.name).contains(q) || (it.capital?.let { c -> fold(c).contains(q) } ?: false) }
-            .sortedBy { if (fold(it.name).startsWith(q)) 0 else 1 }
+        // Zoeken werkt in beide talen: "Germany" en "Duitsland" vinden allebei Duitsland.
+        fun hit(s: String?) = s != null && fold(s).contains(q)
+        if (q.isEmpty()) sorted
+        else sorted.filter { c -> Lang.entries.any { l -> hit(c.name(l)) || hit(c.capital(l)) } }
+            .sortedBy { if (fold(it.name(lang)).startsWith(q)) 0 else 1 }
     }
 
     ModalBottomSheet(
@@ -70,19 +78,19 @@ fun CountryPicker(title: String, countries: List<Country>, onDismiss: () -> Unit
         Column(Modifier.fillMaxHeight(0.88f).imePadding()) {
             Row(Modifier.padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Eyebrow("${countries.size} landen")
+                    Eyebrow(tr("${countries.size} countries", "${countries.size} landen"))
                     Text(title, style = MaterialTheme.typography.headlineSmall, color = Night.text)
                 }
-                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Sluiten", tint = Night.muted) }
+                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, tr("Close", "Sluiten"), tint = Night.muted) }
             }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                placeholder = { Text("Zoek een land of hoofdstad", color = Night.faint) },
+                placeholder = { Text(tr("Search a country or capital", "Zoek een land of hoofdstad"), color = Night.faint) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Night.muted) },
                 trailingIcon = {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Wissen", tint = Night.muted) }
+                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, tr("Clear", "Wissen"), tint = Night.muted) }
                 },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
@@ -95,7 +103,7 @@ fun CountryPicker(title: String, countries: List<Country>, onDismiss: () -> Unit
             )
             if (shown.isEmpty()) {
                 Text(
-                    "Geen land gevonden voor “$query”.",
+                    tr("No country found for “$query”.", "Geen land gevonden voor “$query”."),
                     style = MaterialTheme.typography.bodyMedium, color = Night.muted,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
                 )
@@ -110,15 +118,15 @@ fun CountryPicker(title: String, countries: List<Country>, onDismiss: () -> Unit
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Text(c.flag, fontSize = 24.sp)
+                        Box(Modifier.width(36.dp), contentAlignment = Alignment.Center) { FlagImage(c, height = 22.dp, maxWidth = 36.dp) }
                         Column(Modifier.weight(1f)) {
-                            Text(c.name, style = MaterialTheme.typography.titleSmall, color = Night.text)
-                            c.capital?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Night.muted) }
+                            Text(c.name(lang), style = MaterialTheme.typography.titleSmall, color = Night.text)
+                            c.capital(lang)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Night.muted) }
                         }
-                        Text(formatPopulation(c.population), style = MaterialTheme.typography.labelMedium, color = Night.faint)
+                        Text(formatPopulation(c.population, lang), style = MaterialTheme.typography.labelMedium, color = Night.faint)
                         Spacer(Modifier.width(2.dp))
                     }
-                    HorizontalDivider(color = Night.outlineSoft, modifier = Modifier.padding(start = 58.dp))
+                    HorizontalDivider(color = Night.outlineSoft, modifier = Modifier.padding(start = 70.dp))
                 }
             }
         }

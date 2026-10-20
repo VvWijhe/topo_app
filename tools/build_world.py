@@ -69,6 +69,11 @@ NAME_FIX = {'KOS': 'Kosovo', 'ESH': 'Westelijke Sahara', 'PSE': 'Palestina', 'GR
             'MMR': 'Myanmar', 'TLS': 'Oost-Timor', 'CPV': 'Kaapverdië', 'KOR': 'Zuid-Korea', 'PRK': 'Noord-Korea', 'USA': 'Verenigde Staten',
             'GBR': 'Verenigd Koninkrijk', 'ARE': 'Verenigde Arabische Emiraten', 'BIH': 'Bosnië en Herzegovina', 'TUR': 'Turkije'}
 
+NAME_EN = {'KOS': 'Kosovo', 'ESH': 'Western Sahara', 'PSE': 'Palestine', 'COD': 'DR Congo', 'COG': 'Republic of the Congo',
+           'MKD': 'North Macedonia', 'CIV': 'Ivory Coast', 'TLS': 'East Timor', 'CZE': 'Czechia', 'SWZ': 'Eswatini', 'VAT': 'Vatican City',
+           'FSM': 'Micronesia', 'BHS': 'Bahamas', 'GMB': 'Gambia', 'TUR': 'Turkey'}
+CAP_EN_FIX = {'ISR': 'Jerusalem', 'PSE': 'Ramallah', 'BOL': 'Sucre', 'ZAF': 'Pretoria', 'NLD': 'Amsterdam', 'ESH': 'El Aaiún',
+              'KOS': 'Pristina', 'SMR': 'San Marino', 'USA': 'Washington, D.C.'}
 MANUAL_CLL = {'SSD': [4.85, 31.58], 'NRU': [-0.547, 166.921], 'ESH': [27.153, -13.203], 'PSE': [31.903, 35.204], 'GRL': [64.181, -51.721]}
 # ---------- landen verzamelen ----------
 groups = {}
@@ -146,8 +151,10 @@ for a3, e in groups.items():
             b = {'UNK': 'KOS'}.get(b, b)
             nb.append(b)
     lbl = pr(p['LABEL_X'], p['LABEL_Y'])
+    name_en = NAME_EN.get(code) or (m and m['name']['common']) or p['NAME']
+    cap_en_out = CAP_EN_FIX.get(code) or cap_en
     countries[code] = {
-        'n': name, 'a2': (m['cca2'] if m else p['ISO_A2_EH']).upper().replace('XK', 'XK'),
+        'n': name, 'ne': name_en, 'ce': cap_en_out, 'a2': (m['cca2'] if m else p['ISO_A2_EH']).upper().replace('XK', 'XK'),
         'cap': cap, 'cll': cll, 'pop': int(p['POP_EST']), 'area': (m['area'] if m else None),
         'cont': sorted(cont), 'nb': nb, 'lbl': [round(lbl[0], 1), round(lbl[1], 1)],
         'b': [round(bx0, 1), round(by0, 1), round(bx1, 1), round(by1, 1)],
@@ -175,18 +182,18 @@ def bbox_ll(lon0, lon1, lat0, lat1):
     pts = [pr(lo, la) for lo in [lon0 + (lon1-lon0)*i/20 for i in range(21)] for la in [lat0 + (lat1-lat0)*j/20 for j in range(21)]]
     return [round(min(x for x, _ in pts), 1), round(min(y for _, y in pts), 1), round(max(x for x, _ in pts), 1), round(max(y for _, y in pts), 1)]
 CONTS = {
-    'EU': ['Europa', bbox_ll(-25, 45, 34, 71.5)],
-    'AS': ['Azië', bbox_ll(25, 150, -11, 78)],
-    'AF': ['Afrika', bbox_ll(-26, 58, -36, 38)],
-    'NA': ['Noord-Amerika', bbox_ll(-170, -12, 7, 84)],
-    'SA': ['Zuid-Amerika', bbox_ll(-92, -32, -56, 13)],
-    'OC': ['Oceanië', bbox_ll(110, 200, -48, 3)],
+    'EU': ['Europa', bbox_ll(-25, 45, 34, 71.5), 'Europe'],
+    'AS': ['Azië', bbox_ll(25, 150, -11, 78), 'Asia'],
+    'AF': ['Afrika', bbox_ll(-26, 58, -36, 38), 'Africa'],
+    'NA': ['Noord-Amerika', bbox_ll(-170, -12, 7, 84), 'North America'],
+    'SA': ['Zuid-Amerika', bbox_ll(-92, -32, -56, 13), 'South America'],
+    'OC': ['Oceanië', bbox_ll(110, 200, -48, 3), 'Oceania'],
 }
 CTR = {'EU': (50, 15), 'AS': (45, 90), 'AF': (5, 20), 'NA': (48, -100), 'SA': (-15, -60), 'OC': (-25, 140)}
 out = {
     'vb': [W, round(H, 1)], 'proj': {'k': K, 'ox': OX, 'oy': OY},
     'c': countries, 'bg': bgd, 'lakes': lakes,
-    'cont': {k: {'n': v[0], 'v': v[1], 'c': [round(x, 1) for x in pr(CTR[k][1], CTR[k][0])]} for k, v in CONTS.items()},
+    'cont': {k: {'n': v[0], 'ne': v[2], 'v': v[1], 'c': [round(x, 1) for x in pr(CTR[k][1], CTR[k][0])]} for k, v in CONTS.items()},
 }
 s = json.dumps(out, ensure_ascii=False, separators=(',', ':'))
 open('world.json', 'w').write(s)

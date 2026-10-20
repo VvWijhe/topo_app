@@ -39,6 +39,8 @@ import nl.topo.app.data.content.Region
 import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.content.Topic
 import nl.topo.app.data.content.TopicGroup
+import nl.topo.app.data.i18n.text
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.Progress
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
@@ -62,10 +64,10 @@ fun RegionScreen(regionId: RegionId, onBack: () -> Unit, onPlay: (topicId: Strin
     ) {
         item { Header(region, progress, onBack) }
         item { LevelLegend(region) }
-        items(region.groups, key = { it.title }) { group -> TopicTable(region, group, progress, onPlay) }
+        items(region.groups, key = { it.title.en }) { group -> TopicTable(region, group, progress, onPlay) }
         item {
             Text(
-                "Tik op een vakje om te spelen. Een groen vinkje betekent ${Levels.MASTERED}% of meer.",
+                tr("Tap a cell to play. A green tick means ${Levels.MASTERED}% or more.", "Tik op een vakje om te spelen. Een groen vinkje betekent ${Levels.MASTERED}% of meer."),
                 style = MaterialTheme.typography.bodySmall, color = Night.faint,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
@@ -77,13 +79,13 @@ fun RegionScreen(regionId: RegionId, onBack: () -> Unit, onPlay: (topicId: Strin
 private fun Header(region: Region, progress: Progress, onBack: () -> Unit) {
     Column(Modifier.padding(top = 4.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 0.dp)) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Terug", tint = Night.text)
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = tr("Back", "Terug"), tint = Night.text)
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
             Column(Modifier.weight(1f)) {
-                Eyebrow("Opties")
-                Text(region.name, style = MaterialTheme.typography.displayMedium, color = Night.text)
-                Text(region.tagline, style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+                Eyebrow(tr("Options", "Opties"))
+                Text(region.name.text, style = MaterialTheme.typography.displayMedium, color = Night.text)
+                Text(region.tagline.text, style = MaterialTheme.typography.bodyMedium, color = Night.muted)
             }
             ProgressRing(progress.fraction(region), diameter = 64.dp)
         }
@@ -104,9 +106,9 @@ private fun LevelLegend(region: Region) {
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 StarsText(lv.stars, size = 11)
-                Text(lv.title, style = MaterialTheme.typography.labelMedium, color = Night.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(region.levelScope[i], style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
-                Text(lv.how, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 2)
+                Text(lv.title.text, style = MaterialTheme.typography.labelMedium, color = Night.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(region.levelScope[i].text, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
+                Text(lv.how.text, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 2)
             }
         }
     }
@@ -122,15 +124,15 @@ private fun TopicTable(region: Region, group: TopicGroup, progress: Progress, on
             .border(1.dp, Night.outline, MaterialTheme.shapes.medium),
     ) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 10.dp)) {
-            Text(group.title, style = MaterialTheme.typography.headlineSmall, color = Night.text)
-            Text(group.subtitle, style = MaterialTheme.typography.bodySmall, color = Night.muted)
+            Text(group.title.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
+            Text(group.subtitle.text, style = MaterialTheme.typography.bodySmall, color = Night.muted)
         }
         // kolomkoppen
         Row(
             Modifier.fillMaxWidth().background(Night.surfaceHigh.copy(alpha = 0.6f)).padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Eyebrow("Onderwerp", Modifier.weight(1f).padding(start = 16.dp))
+            Eyebrow(tr("Topic", "Onderwerp"), Modifier.weight(1f).padding(start = 16.dp))
             Levels.all.forEach { lv ->
                 Box(Modifier.width(CellWidth), contentAlignment = Alignment.Center) { StarsText(lv.stars, size = 10) }
             }
@@ -153,11 +155,11 @@ private fun TopicRow(region: Region, topic: Topic, progress: Progress, onPlay: (
             ) { Icon(topic.icon, null, tint = Night.glow, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(10.dp))
             Column {
-                Text(topic.name, style = MaterialTheme.typography.titleSmall, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(topic.name.text, style = MaterialTheme.typography.titleSmall, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (Content.isPlayable(region, topic.id)) {
-                    Text("Speelbaar · ${topic.description}", style = MaterialTheme.typography.bodySmall, color = Night.glow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(tr("Playable", "Speelbaar") + " · " + topic.description.text, style = MaterialTheme.typography.bodySmall, color = Night.glow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 } else {
-                    Text("Binnenkort · ${topic.description}", style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(tr("Coming soon", "Binnenkort") + " · " + topic.description.text, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

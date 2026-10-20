@@ -6,6 +6,10 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.prefs.Settings
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.TopoApp
@@ -22,7 +26,8 @@ class MainActivity : ComponentActivity() {
         )
         val container = (application as TopoApplication).container
         setContent {
-            CompositionLocalProvider(LocalAppContainer provides container) {
+            val settings by container.settings.settings.collectAsStateWithLifecycle(Settings())
+            CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language) {
                 TopoTheme { TopoApp() }
             }
         }

@@ -42,6 +42,8 @@ import nl.topo.app.data.content.Levels
 import nl.topo.app.data.content.Region
 import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.prefs.Progress
+import nl.topo.app.data.i18n.text
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
 import nl.topo.app.ui.components.GlowButton
@@ -63,8 +65,8 @@ fun ProgressScreen(onOpenRegion: (RegionId) -> Unit, onGoToMap: () -> Unit) {
     ) {
         item {
             Column(Modifier.padding(horizontal = 4.dp)) {
-                Text("Voortgang", style = MaterialTheme.typography.displayMedium, color = Night.text)
-                Text("Wat je al kent, en wat nog niet", style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+                Text(tr("Progress", "Voortgang"), style = MaterialTheme.typography.displayMedium, color = Night.text)
+                Text(tr("What you know, and what you don't yet", "Wat je al kent, en wat nog niet"), style = MaterialTheme.typography.bodyMedium, color = Night.muted)
             }
         }
         if (progress.rounds == 0) {
@@ -72,9 +74,9 @@ fun ProgressScreen(onOpenRegion: (RegionId) -> Unit, onGoToMap: () -> Unit) {
         } else {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile(Icons.Rounded.LocalFireDepartment, Night.ember, "${progress.streak}", if (progress.streak == 1) "dag op rij" else "dagen op rij", Modifier.weight(1f))
-                    StatTile(Icons.Rounded.Replay, Night.text, "${progress.rounds}", "rondes", Modifier.weight(1f))
-                    StatTile(Icons.Rounded.CheckCircle, Night.glow, "${regions.sumOf { progress.mastered(it) }}", "vakjes gekend", Modifier.weight(1f))
+                    StatTile(Icons.Rounded.LocalFireDepartment, Night.ember, "${progress.streak}", if (progress.streak == 1) tr("day in a row", "dag op rij") else tr("days in a row", "dagen op rij"), Modifier.weight(1f))
+                    StatTile(Icons.Rounded.Replay, Night.text, "${progress.rounds}", tr("rounds", "rondes"), Modifier.weight(1f))
+                    StatTile(Icons.Rounded.CheckCircle, Night.glow, "${regions.sumOf { progress.mastered(it) }}", tr("cells mastered", "vakjes gekend"), Modifier.weight(1f))
                 }
             }
         }
@@ -99,9 +101,9 @@ private fun RegionProgress(region: Region, progress: Progress, onOpen: () -> Uni
             ProgressRing(progress.fraction(region), diameter = 60.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(region.name, style = MaterialTheme.typography.headlineSmall, color = Night.text)
+                Text(region.name.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
                 Text(
-                    "${progress.mastered(region)} van ${region.cellCount} gekend · ${progress.played(region)} gespeeld",
+                    tr("${progress.mastered(region)} of ${region.cellCount} mastered · ${progress.played(region)} played", "${progress.mastered(region)} van ${region.cellCount} gekend · ${progress.played(region)} gespeeld"),
                     style = MaterialTheme.typography.bodySmall, color = Night.muted,
                 )
             }
@@ -127,11 +129,11 @@ private fun RegionProgress(region: Region, progress: Progress, onOpen: () -> Uni
             .sortedBy { it.third }.take(3)
         if (weak.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
-            Eyebrow("Nog oefenen")
+            Eyebrow(tr("Keep practising", "Nog oefenen"))
             Spacer(Modifier.height(6.dp))
             weak.forEach { (t, lv, score) ->
                 Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(t.name, style = MaterialTheme.typography.bodyMedium, color = Night.text, modifier = Modifier.weight(1f))
+                    Text(t.name.text, style = MaterialTheme.typography.bodyMedium, color = Night.text, modifier = Modifier.weight(1f))
                     StarsText(lv, size = 10)
                     Spacer(Modifier.width(10.dp))
                     Text("$score%", style = MaterialTheme.typography.labelMedium, color = if (score >= Levels.OK) Night.mid else Night.danger)
@@ -149,12 +151,12 @@ private fun EmptyState(onGoToMap: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Rounded.Explore, null, tint = Night.glow, modifier = Modifier.size(28.dp)) }
         Spacer(Modifier.height(14.dp))
-        Text("Nog geen rondes gespeeld", style = MaterialTheme.typography.headlineSmall, color = Night.text)
+        Text(tr("No rounds played yet", "Nog geen rondes gespeeld"), style = MaterialTheme.typography.headlineSmall, color = Night.text)
         Text(
-            "Kies op de kaart een gebied en speel een ronde. Hier zie je daarna je reeks, je scores per niveau en wat je nog moet oefenen.",
+            tr("Pick an area on the map and play a round. Then you'll see your streak, your scores per level and what to practise here.", "Kies op de kaart een gebied en speel een ronde. Hier zie je daarna je reeks, je scores per niveau en wat je nog moet oefenen."),
             style = MaterialTheme.typography.bodyMedium, color = Night.muted,
         )
         Spacer(Modifier.height(16.dp))
-        GlowButton("Naar de kaart", onGoToMap)
+        GlowButton(tr("Go to the map", "Naar de kaart"), onGoToMap)
     }
 }

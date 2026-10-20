@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +51,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import nl.topo.app.data.i18n.Lang
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.RoundLength
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
@@ -74,49 +77,62 @@ fun SettingsScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(Modifier.padding(horizontal = 4.dp)) {
-            Text("Instellingen", style = MaterialTheme.typography.displayMedium, color = Night.text)
+            Text(tr("Settings", "Instellingen"), style = MaterialTheme.typography.displayMedium, color = Night.text)
         }
 
-        Section("Spelen") {
-            SettingRow(Icons.Rounded.FormatListNumbered, "Rondelengte", "Hoeveel vragen per ronde") {
-                Segmented(RoundLength.entries.map { it.label }, s.roundLength.ordinal) { i ->
+        Section(tr("Language", "Taal")) {
+            SettingRow(Icons.Rounded.Translate, tr("App language", "Taal van de app"), tr("Menus, country names and capitals", "Menu's, landnamen en hoofdsteden")) {
+                Segmented(Lang.entries.map { it.label }, s.language.ordinal) { i ->
+                    scope.launch { app.settings.setLanguage(Lang.entries[i]) }
+                }
+            }
+        }
+
+        Section(tr("Playing", "Spelen")) {
+            SettingRow(Icons.Rounded.FormatListNumbered, tr("Round length", "Rondelengte"), tr("Questions per round", "Hoeveel vragen per ronde")) {
+                Segmented(listOf(tr("10 questions", "10 vragen"), tr("All", "Alles")), s.roundLength.ordinal) { i ->
                     scope.launch { app.settings.setRoundLength(RoundLength.entries[i]) }
                 }
             }
             Divider()
-            SwitchRow(Icons.Rounded.TextFields, "Namen op de kaart", "Handig om eerst te leren", s.mapLabels) {
+            SwitchRow(Icons.Rounded.TextFields, tr("Names on the map", "Namen op de kaart"), tr("Handy while you're learning", "Handig om eerst te leren"), s.mapLabels) {
                 scope.launch { app.settings.setMapLabels(it) }
             }
         }
 
         Section("Feedback") {
-            SwitchRow(Icons.AutoMirrored.Rounded.VolumeUp, "Geluid", "Geluidje bij goed en fout", s.sound) {
+            SwitchRow(Icons.AutoMirrored.Rounded.VolumeUp, tr("Sound", "Geluid"), tr("A sound for right and wrong", "Geluidje bij goed en fout"), s.sound) {
                 scope.launch { app.settings.setSound(it) }
             }
             Divider()
-            SwitchRow(Icons.Rounded.Vibration, "Trillen", "Korte tik bij elk antwoord", s.haptics) {
+            SwitchRow(Icons.Rounded.Vibration, tr("Vibration", "Trillen"), tr("A short tap with every answer", "Korte tik bij elk antwoord"), s.haptics) {
                 if (it) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 scope.launch { app.settings.setHaptics(it) }
             }
         }
 
-        Section("Voortgang") {
+        Section(tr("Progress", "Voortgang")) {
             SettingRow(
-                Icons.Rounded.DeleteForever, "Voortgang wissen",
-                if (resetDone) "Gewist" else "Alle scores en je reeks op nul",
+                Icons.Rounded.DeleteForever, tr("Reset progress", "Voortgang wissen"),
+                if (resetDone) tr("Reset", "Gewist") else tr("All scores and your streak back to zero", "Alle scores en je reeks op nul"),
                 tint = Night.danger, onClick = { confirmReset = true },
             )
         }
 
-        Section("Over Topo") {
-            SettingRow(Icons.Rounded.Info, "Versie $version", "Gemaakt om topografie te leren")
+        Section(tr("About Topo", "Over Topo")) {
+            SettingRow(Icons.Rounded.Info, tr("Version $version", "Versie $version"), tr("Made for learning geography", "Gemaakt om topografie te leren"))
             Divider()
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Eyebrow("Bronnen")
+                Eyebrow(tr("Sources", "Bronnen"))
                 Text(
-                    "Kaarten: Natural Earth (publiek domein) en CBS-gebiedsindelingen via cartomap/nl. " +
-                        "Landgegevens: mledoze/countries (ODbL). Vlaggen: flag-icons (MIT). " +
-                        "Lettertypen: Young Serif en Figtree (SIL Open Font License).",
+                    tr(
+                        "Maps: Natural Earth (public domain) and Statistics Netherlands boundaries via cartomap/nl. " +
+                            "Country data: mledoze/countries (ODbL). Flags: hampusborgos/country-flags (public domain). " +
+                            "Fonts: Young Serif and Figtree (SIL Open Font License).",
+                        "Kaarten: Natural Earth (publiek domein) en CBS-gebiedsindelingen via cartomap/nl. " +
+                            "Landgegevens: mledoze/countries (ODbL). Vlaggen: hampusborgos/country-flags (publiek domein). " +
+                            "Lettertypen: Young Serif en Figtree (SIL Open Font License).",
+                    ),
                     style = MaterialTheme.typography.bodySmall, color = Night.muted,
                 )
             }
@@ -127,15 +143,15 @@ fun SettingsScreen() {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             containerColor = Night.surfaceHigh,
-            title = { Text("Alle voortgang wissen?", style = MaterialTheme.typography.headlineSmall) },
-            text = { Text("Je beste scores, je reeks en ‘Verder spelen’ gaan verloren. Dit kun je niet ongedaan maken.", color = Night.muted) },
+            title = { Text(tr("Reset all progress?", "Alle voortgang wissen?"), style = MaterialTheme.typography.headlineSmall) },
+            text = { Text(tr("Your best scores, your streak and ‘Continue’ will be lost. This can't be undone.", "Je beste scores, je reeks en ‘Verder spelen’ gaan verloren. Dit kun je niet ongedaan maken."), color = Night.muted) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch { app.progress.reset(); resetDone = true }
                     confirmReset = false
-                }) { Text("Wissen", color = Night.danger) }
+                }) { Text(tr("Reset", "Wissen"), color = Night.danger) }
             },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Annuleren", color = Night.text) } },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(tr("Cancel", "Annuleren"), color = Night.text) } },
         )
     }
 }

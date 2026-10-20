@@ -41,6 +41,9 @@ import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.content.RegionKind
 import nl.topo.app.data.geo.WorldMap
 import nl.topo.app.data.prefs.RoundLength
+import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.i18n.text
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.quiz.FlagGame
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
@@ -101,42 +104,43 @@ private fun PlaceholderQuiz(regionId: RegionId, topicId: String, level: Int, onB
     val topic = Content.topic(regionId, topicId)
     val scope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
+    val lang = LocalLang.current
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Terug", tint = Night.text) }
+        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Back", "Terug"), tint = Night.text) }
         Column(Modifier.padding(horizontal = 4.dp)) {
-            Eyebrow(region.name)
-            Text(topic?.name ?: topicId, style = MaterialTheme.typography.displayMedium, color = Night.text)
+            Eyebrow(region.name.text)
+            Text(topic?.name?.text ?: topicId, style = MaterialTheme.typography.displayMedium, color = Night.text)
             Row { StarsText(level, size = 16) }
             Text(
-                "${Levels.all[level - 1].title} · ${region.levelScope[level - 1]} · ${Levels.all[level - 1].how} · ${settings.roundLength.label}",
+                "${Levels.all[level - 1].title.text} · ${region.levelScope[level - 1].text} · ${Levels.all[level - 1].how.text}",
                 style = MaterialTheme.typography.bodyMedium, color = Night.muted,
             )
         }
 
         NightCard(Modifier.fillMaxWidth()) {
-            Text("Dit onderwerp komt nog", style = MaterialTheme.typography.headlineSmall, color = Night.text)
+            Text(tr("This topic is coming", "Dit onderwerp komt nog"), style = MaterialTheme.typography.headlineSmall, color = Night.text)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Speelbaar nu: Vlag, voor de wereld en elk werelddeel. De andere onderwerpen volgen.",
+                tr("Playable now: Flag, for the world and every continent. The other topics will follow.", "Speelbaar nu: Vlag, voor de wereld en elk werelddeel. De andere onderwerpen volgen."),
                 style = MaterialTheme.typography.bodyMedium, color = Night.muted,
             )
         }
 
         NightCard(Modifier.fillMaxWidth()) {
-            Eyebrow("Alleen om te testen", color = Night.ember)
+            Eyebrow(tr("For testing only", "Alleen om te testen"), color = Night.ember)
             Spacer(Modifier.height(6.dp))
-            Text("Doe alsof je een ronde speelde, en kijk wat er gebeurt met de vakjes en je voortgang.", style = MaterialTheme.typography.bodySmall, color = Night.muted)
+            Text(tr("Pretend you played a round, and see what happens to the cells and your progress.", "Doe alsof je een ronde speelde, en kijk wat er gebeurt met de vakjes en je voortgang."), style = MaterialTheme.typography.bodySmall, color = Night.muted)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(45, 75, 100).forEach { pct ->
                     OutlinedButton(onClick = {
                         scope.launch {
                             val record = app.progress.recordRound(regionId, topicId, level, pct)
-                            message = if (record) "$pct% opgeslagen — nieuw record" else "$pct% gespeeld; je record blijft staan"
+                            message = if (record) lang.t("$pct% saved — new record", "$pct% opgeslagen — nieuw record") else lang.t("$pct% played; your record stands", "$pct% gespeeld; je record blijft staan")
                         }
                     }) { Text("$pct%", color = Night.text) }
                 }
