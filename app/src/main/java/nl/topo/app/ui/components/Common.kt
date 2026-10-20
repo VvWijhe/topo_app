@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import nl.topo.app.data.content.Levels
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.ui.theme.Figtree
 import nl.topo.app.ui.theme.Night
 
@@ -152,7 +153,7 @@ fun StreakChip(days: Int, modifier: Modifier = Modifier) {
     ) {
         Icon(Icons.Rounded.LocalFireDepartment, null, tint = if (active) Night.ember else Night.faint, modifier = Modifier.size(18.dp))
         Text(
-            if (days == 1) "1 dag" else "$days dagen",
+            if (days == 1) tr("1 day", "1 dag") else tr("$days days", "$days dagen"),
             style = MaterialTheme.typography.labelMedium,
             color = if (active) Night.text else Night.muted,
         )

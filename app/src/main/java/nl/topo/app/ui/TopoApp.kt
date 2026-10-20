@@ -34,6 +34,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import nl.topo.app.AppContainer
 import nl.topo.app.data.content.RegionId
+import nl.topo.app.data.i18n.Txt
+import nl.topo.app.data.i18n.text
 import nl.topo.app.ui.components.NightSky
 import nl.topo.app.ui.home.HomeScreen
 import nl.topo.app.ui.progress.ProgressScreen
@@ -55,12 +57,12 @@ object Routes {
     fun quiz(id: RegionId, topic: String, level: Int) = "quiz/${id.name}/$topic/$level"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: Txt, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab(Routes.HOME, "Kaart", Icons.Rounded.Explore),
-    Tab(Routes.PROGRESS, "Voortgang", Icons.Rounded.Insights),
-    Tab(Routes.SETTINGS, "Instellingen", Icons.Rounded.Settings),
+    Tab(Routes.HOME, Txt("Map", "Kaart"), Icons.Rounded.Explore),
+    Tab(Routes.PROGRESS, Txt("Progress", "Voortgang"), Icons.Rounded.Insights),
+    Tab(Routes.SETTINGS, Txt("Settings", "Instellingen"), Icons.Rounded.Settings),
 )
 
 @Composable
@@ -147,7 +149,7 @@ private fun BottomTabs(nav: NavHostController, current: String?) {
                 selected = current == tab.route,
                 onClick = { if (current != tab.route) nav.switchTab(tab.route) },
                 icon = { Icon(tab.icon, contentDescription = null) },
-                label = { Text(tab.label) },
+                label = { Text(tab.label.text) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Night.glow,
                     selectedTextColor = Night.glow,

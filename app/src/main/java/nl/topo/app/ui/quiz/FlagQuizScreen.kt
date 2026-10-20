@@ -58,7 +58,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import nl.topo.app.data.content.Levels
 import nl.topo.app.data.content.Region
@@ -71,6 +70,10 @@ import nl.topo.app.ui.components.NightCard
 import nl.topo.app.ui.components.ProgressBar
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.home.formatPopulation
+import nl.topo.app.ui.components.FlagImage
+import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.i18n.text
+import nl.topo.app.data.i18n.tr
 import nl.topo.app.ui.theme.Night
 
 @Composable
@@ -96,13 +99,13 @@ fun FlagQuizScreen(
     ) {
         // ---------- kop ----------
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Terug", tint = Night.text) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Back", "Terug"), tint = Night.text) }
             Column(Modifier.weight(1f)) {
-                Eyebrow("Vlaggen · ${region.name}")
+                Eyebrow(tr("Flags", "Vlaggen") + " · " + region.name.text)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StarsText(game.level, size = 14)
                     Spacer(Modifier.width(8.dp))
-                    Text("${Levels.all[game.level - 1].title} · ${game.poolSize} landen", style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                    Text("${Levels.all[game.level - 1].title.text} · " + tr("${game.poolSize} countries", "${game.poolSize} landen"), style = MaterialTheme.typography.bodySmall, color = Night.muted)
                 }
             }
         }
@@ -116,8 +119,8 @@ fun FlagQuizScreen(
         // ---------- voortgang ----------
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row {
-                Text("Vraag ${game.index + 1} / ${game.total}", style = MaterialTheme.typography.labelMedium, color = Night.muted, modifier = Modifier.weight(1f))
-                Text("${game.correctTotal} goed", style = MaterialTheme.typography.labelMedium, color = Night.glow)
+                Text(tr("Question", "Vraag") + " ${game.index + 1} / ${game.total}", style = MaterialTheme.typography.labelMedium, color = Night.muted, modifier = Modifier.weight(1f))
+                Text(tr("${game.correctTotal} correct", "${game.correctTotal} goed"), style = MaterialTheme.typography.labelMedium, color = Night.glow)
             }
             ProgressBar(game.index.toFloat() / game.total.coerceAtLeast(1))
         }
@@ -143,16 +146,16 @@ fun FlagQuizScreen(
 private fun Prompt(q: FlagQuestion) {
     NightCard(Modifier.fillMaxWidth()) {
         if (q.reverse) {
-            Text("Welke vlag hoort bij", style = MaterialTheme.typography.bodyMedium, color = Night.muted)
-            Text(q.answer.name, style = MaterialTheme.typography.displayMedium, color = Night.text)
+            Text(tr("Which flag belongs to", "Welke vlag hoort bij"), style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+            Text(q.answer.name(LocalLang.current), style = MaterialTheme.typography.displayMedium, color = Night.text)
         } else {
             Text(
-                if (q.options.isEmpty()) "Van welk land is deze vlag? Typ de naam." else "Van welk land is deze vlag?",
+                if (q.options.isEmpty()) tr("Which country's flag is this? Type the name.", "Van welk land is deze vlag? Typ de naam.") else tr("Which country's flag is this?", "Van welk land is deze vlag?"),
                 style = MaterialTheme.typography.bodyMedium, color = Night.muted,
             )
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().heightIn(min = 150.dp), contentAlignment = Alignment.Center) {
-                Text(q.answer.flag, fontSize = 128.sp, lineHeight = 140.sp, textAlign = TextAlign.Center)
+                FlagImage(q.answer, height = 150.dp, maxWidth = 290.dp, shadow = true)
             }
         }
     }
@@ -177,7 +180,7 @@ private fun NameOptions(game: FlagGame, q: FlagQuestion) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { c ->
                     OptionBox(optState(game, q, c), Modifier.weight(1f).heightIn(min = 58.dp), { game.pick(c) }) {
-                        Text(c.name, style = MaterialTheme.typography.titleSmall, color = Night.text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp))
+                        Text(c.name(LocalLang.current), style = MaterialTheme.typography.titleSmall, color = Night.text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp))
                     }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
@@ -195,9 +198,9 @@ private fun FlagOptions(game: FlagGame, q: FlagQuestion) {
                     val st = optState(game, q, c)
                     OptionBox(st, Modifier.weight(1f).aspectRatio(1.3f), { game.pick(c) }) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(c.flag, fontSize = if (q.options.size > 4) 48.sp else 60.sp)
+                            FlagImage(c, height = if (q.options.size > 4) 44.dp else 62.dp, maxWidth = if (q.options.size > 4) 84.dp else 124.dp)
                             if (st == OptState.WRONG || (st == OptState.DIM && game.answer?.correct == false)) {
-                                Text(c.name, style = MaterialTheme.typography.labelSmall, color = Night.muted, textAlign = TextAlign.Center, maxLines = 1)
+                                Text(c.name(LocalLang.current), style = MaterialTheme.typography.labelSmall, color = Night.muted, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }
@@ -238,7 +241,7 @@ private fun TypeAnswer(game: FlagGame, q: FlagQuestion) {
             value = text,
             onValueChange = { if (!done) text = it },
             modifier = Modifier.weight(1f).focusRequester(focus),
-            placeholder = { Text("Naam van het land", color = Night.faint) },
+            placeholder = { Text(tr("Name of the country", "Naam van het land"), color = Night.faint) },
             singleLine = true,
             enabled = !done,
             shape = MaterialTheme.shapes.medium,
@@ -251,7 +254,7 @@ private fun TypeAnswer(game: FlagGame, q: FlagQuestion) {
                 cursorColor = Night.glow, focusedTextColor = Night.text, unfocusedTextColor = Night.text,
             ),
         )
-        GlowButton("Check", { game.type(text) }, enabled = !done && text.isNotBlank())
+        GlowButton(tr("Check", "Check"), { game.type(text) }, enabled = !done && text.isNotBlank())
     }
 }
 
@@ -259,6 +262,7 @@ private fun TypeAnswer(game: FlagGame, q: FlagQuestion) {
 private fun Feedback(game: FlagGame, q: FlagQuestion) {
     val a = game.answer ?: return
     val c = q.answer
+    val lang = LocalLang.current
     val color = if (a.correct) Night.glow else Night.danger
     Column(
         Modifier
@@ -274,24 +278,29 @@ private fun Feedback(game: FlagGame, q: FlagQuestion) {
             Spacer(Modifier.width(8.dp))
             Text(
                 when {
-                    a.correct -> "Goed!"
-                    a.picked != null && q.reverse -> "Dat is de vlag van ${a.picked.name}."
-                    a.picked != null -> "Dat was niet ${a.picked.name}."
-                    else -> "Jij typte “${a.typed}”."
+                    a.correct -> tr("Correct!", "Goed!")
+                    a.picked != null && q.reverse -> tr("That's the flag of ${a.picked.name(lang)}.", "Dat is de vlag van ${a.picked.name(lang)}.")
+                    a.picked != null -> tr("That wasn't ${a.picked.name(lang)}.", "Dat was niet ${a.picked.name(lang)}.")
+                    else -> tr("You typed “${a.typed}”.", "Jij typte “${a.typed}”.")
                 },
                 style = MaterialTheme.typography.titleSmall, color = Night.text,
             )
         }
-        Text(
-            "${c.flag}  ${c.name}" + (c.capital?.let { " · hoofdstad $it" } ?: "") + " · ${formatPopulation(c.population)} inwoners",
-            style = MaterialTheme.typography.bodyMedium, color = Night.muted,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FlagImage(c, height = 18.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                c.name(lang) + (c.capital(lang)?.let { tr(" · capital $it", " · hoofdstad $it") } ?: "") +
+                    tr(" · ${formatPopulation(c.population, lang)} people", " · ${formatPopulation(c.population, lang)} inwoners"),
+                style = MaterialTheme.typography.bodyMedium, color = Night.muted,
+            )
+        }
         if (!a.correct) {
             Spacer(Modifier.height(6.dp))
             Row {
-                Text("Deze vlag komt aan het eind nog een keer terug.", style = MaterialTheme.typography.bodySmall, color = Night.faint, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
+                Text(tr("This flag will come back once more at the end.", "Deze vlag komt aan het eind nog een keer terug."), style = MaterialTheme.typography.bodySmall, color = Night.faint, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
                 Spacer(Modifier.width(8.dp))
-                GlowButton("Volgende", { game.next() })
+                GlowButton(tr("Next", "Volgende"), { game.next() })
             }
         }
     }
@@ -304,46 +313,46 @@ private fun Result(game: FlagGame, record: Boolean?, onAgain: () -> Unit, onBack
     val pct = game.percent
     val color = when { pct >= Levels.MASTERED -> Night.glow; pct >= Levels.OK -> Night.mid; else -> Night.danger }
     NightCard(Modifier.fillMaxWidth()) {
-        Eyebrow("Ronde klaar")
+        Eyebrow(tr("Round complete", "Ronde klaar"))
         Text("$pct%", style = MaterialTheme.typography.displayLarge, color = color)
         Text(
-            "${game.correctFirstTry} van ${game.firstCount} in één keer goed" + when (record) {
-                true -> " · nieuw record!"
+            tr("${game.correctFirstTry} of ${game.firstCount} right first time", "${game.correctFirstTry} van ${game.firstCount} in één keer goed") + when (record) {
+                true -> tr(" · new record!", " · nieuw record!")
                 else -> ""
             },
             style = MaterialTheme.typography.bodyLarge, color = Night.text,
         )
         Text(
             when {
-                pct == 100 -> "Foutloos. Tijd voor een hoger niveau."
-                pct >= Levels.MASTERED -> "Sterk. Dit vakje telt als gekend."
-                pct >= Levels.OK -> "Op weg. Nog een ronde en je zit boven de ${Levels.MASTERED}%."
-                else -> "Blijven oefenen: de vlaggen die je mist komen vaker langs."
+                pct == 100 -> tr("Flawless. Time for a higher level.", "Foutloos. Tijd voor een hoger niveau.")
+                pct >= Levels.MASTERED -> tr("Strong. This cell now counts as mastered.", "Sterk. Dit vakje telt als gekend.")
+                pct >= Levels.OK -> tr("Getting there. One more round and you'll pass ${Levels.MASTERED}%.", "Op weg. Nog een ronde en je zit boven de ${Levels.MASTERED}%.")
+                else -> tr("Keep practising: the flags you miss come back more often.", "Blijven oefenen: de vlaggen die je mist komen vaker langs.")
             },
             style = MaterialTheme.typography.bodyMedium, color = Night.muted,
         )
         if (game.misses.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
-            Eyebrow("Nog even oefenen")
+            Eyebrow(tr("Practise these", "Nog even oefenen"))
             Spacer(Modifier.height(6.dp))
             game.misses.forEach { c ->
                 Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.flag, fontSize = 22.sp)
+                    FlagImage(c, height = 20.dp)
                     Spacer(Modifier.width(10.dp))
-                    Text(c.name, style = MaterialTheme.typography.bodyMedium, color = Night.text)
+                    Text(c.name(LocalLang.current), style = MaterialTheme.typography.bodyMedium, color = Night.text)
                 }
             }
         }
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlowButton("Nieuwe ronde", onAgain, Modifier.fillMaxWidth())
+            GlowButton(tr("New round", "Nieuwe ronde"), onAgain, Modifier.fillMaxWidth())
             if (onNextLevel != null && pct >= Levels.MASTERED) {
                 OutlinedButton(onClick = onNextLevel, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Night.gold), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.gold)) {
-                    Text("Naar ${"★".repeat(game.level + 1)}", style = MaterialTheme.typography.labelLarge)
+                    Text(tr("On to", "Naar") + " ${"★".repeat(game.level + 1)}", style = MaterialTheme.typography.labelLarge)
                 }
             }
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.text)) {
-                Text("Terug naar de opties", style = MaterialTheme.typography.labelLarge)
+                Text(tr("Back to options", "Terug naar de opties"), style = MaterialTheme.typography.labelLarge)
             }
         }
     }

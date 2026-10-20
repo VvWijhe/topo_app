@@ -62,7 +62,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.topo.app.data.content.Content
 import nl.topo.app.data.content.Region
@@ -70,6 +69,11 @@ import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.content.RegionKind
 import nl.topo.app.data.geo.Country
 import nl.topo.app.data.geo.WorldMap
+import nl.topo.app.data.i18n.Lang
+import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.i18n.text
+import nl.topo.app.data.i18n.tr
+import nl.topo.app.ui.components.FlagImage
 import nl.topo.app.data.prefs.LastPlayed
 import nl.topo.app.data.prefs.Progress
 import nl.topo.app.data.prefs.Settings
@@ -84,7 +88,6 @@ import nl.topo.app.ui.components.StreakChip
 import nl.topo.app.ui.components.anchorAt
 import nl.topo.app.ui.theme.Night
 import java.text.NumberFormat
-import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -97,6 +100,7 @@ fun HomeScreen(
     val world by produceState<WorldMap?>(null) { value = app.geo.world() }
     val haptics = LocalHapticFeedback.current
     val tapReachPx = with(LocalDensity.current) { 22.dp.toPx() }
+    val lang = LocalLang.current
 
     // Wat er gekozen is: een gebied (wereld of werelddeel) en eventueel een land daarin.
     var regionId by rememberSaveable { mutableStateOf(RegionId.EUROPA) }
@@ -175,18 +179,18 @@ fun HomeScreen(
                     when {
                         country != null -> country.capitalPos?.let { cp ->
                             val s = tf.toScreen(cp)
-                            country.capital?.let { MapTag(it, Night.ember, true, Modifier.anchorAt(s.copy(y = s.y - 18f), 0.5f, 1f)) {} }
+                            country.capital(lang)?.let { MapTag(it, Night.ember, true, Modifier.anchorAt(s.copy(y = s.y - 18f), 0.5f, 1f)) {} }
                         }
                         region.kind == RegionKind.WORLD -> w.continents.values.forEach { ci ->
-                            MapTag(ci.name, Night.glow, false, Modifier.anchorAt(tf.toScreen(ci.center), 0.5f, 0.5f)) {
+                            MapTag(ci.name(lang), Night.glow, false, Modifier.anchorAt(tf.toScreen(ci.center), 0.5f, 0.5f)) {
                                 selectRegion(Content.forContinent(ci.continent).id)
                             }
                         }
                     }
                     // Terug-knop onder de kop
                     val backLabel = when {
-                        country != null -> region.name
-                        region.kind == RegionKind.CONTINENT -> "Wereld"
+                        country != null -> region.name.text
+                        region.kind == RegionKind.CONTINENT -> Content.wereld.name.text
                         else -> null
                     }
                     if (backLabel != null) {
@@ -214,9 +218,9 @@ fun HomeScreen(
                     Text("Topo", style = MaterialTheme.typography.displayMedium, color = Night.text)
                     Text(
                         when {
-                            countryCode != null -> "Tik een buurland aan, of ga terug"
-                            region.kind == RegionKind.WORLD -> "Tik een werelddeel aan"
-                            else -> "Tik een land aan op de kaart"
+                            countryCode != null -> tr("Tap a neighbour, or go back", "Tik een buurland aan, of ga terug")
+                            region.kind == RegionKind.WORLD -> tr("Tap a continent", "Tik een werelddeel aan")
+                            else -> tr("Tap a country on the map", "Tik een land aan op de kaart")
                         },
                         style = MaterialTheme.typography.bodyMedium, color = Night.muted,
                     )
@@ -258,7 +262,7 @@ fun HomeScreen(
     val w = world
     if (pickerOpen && w != null) {
         CountryPicker(
-            title = if (region.kind == RegionKind.WORLD) "Kies een land" else "Kies een land in ${region.name}",
+            title = if (region.kind == RegionKind.WORLD) tr("Choose a country", "Kies een land") else tr("Choose a country in ${region.name.text}", "Kies een land in ${region.name.text}"),
             countries = w.countriesIn(region.continent),
             onDismiss = { pickerOpen = false },
             onPick = { c -> pickerOpen = false; selectCountry(c) },
@@ -276,18 +280,19 @@ private fun padded(b: Rect): Rect {
     return Rect(b.center.x - pw, b.center.y - ph, b.center.x + pw, b.center.y + ph)
 }
 
-private val nl = Locale("nl", "NL")
-
-internal fun formatPopulation(n: Long): String = when {
-    n >= 1_000_000 -> NumberFormat.getNumberInstance(nl).apply { maximumFractionDigits = if (n >= 10_000_000) 0 else 1 }.format(n / 1_000_000.0) + " mln"
-    n >= 10_000 -> NumberFormat.getIntegerInstance(nl).format((n / 1000) * 1000)
-    else -> NumberFormat.getIntegerInstance(nl).format(n)
+internal fun formatPopulation(n: Long, lang: Lang): String {
+    val loc = lang.locale
+    return when {
+        n >= 1_000_000 -> NumberFormat.getNumberInstance(loc).apply { maximumFractionDigits = if (n >= 10_000_000) 0 else 1 }.format(n / 1_000_000.0) + lang.t(" million", " mln")
+        n >= 10_000 -> NumberFormat.getIntegerInstance(loc).format((n / 1000) * 1000)
+        else -> NumberFormat.getIntegerInstance(loc).format(n)
+    }
 }
 
-internal fun formatArea(a: Double?): String = when {
+internal fun formatArea(a: Double?, lang: Lang): String = when {
     a == null -> "–"
-    a < 10 -> NumberFormat.getNumberInstance(nl).apply { maximumFractionDigits = 2 }.format(a) + " km²"
-    else -> NumberFormat.getIntegerInstance(nl).format(a.toLong()) + " km²"
+    a < 10 -> NumberFormat.getNumberInstance(lang.locale).apply { maximumFractionDigits = 2 }.format(a) + " km²"
+    else -> NumberFormat.getIntegerInstance(lang.locale).format(a.toLong()) + " km²"
 }
 
 @Composable
@@ -320,7 +325,7 @@ private fun RegionChips(selected: RegionId, onSelect: (RegionId) -> Unit) {
                     .clickable { onSelect(r.id) }
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
-                Text(r.name, style = MaterialTheme.typography.labelMedium, color = if (active) Night.text else Night.muted)
+                Text(r.name.text, style = MaterialTheme.typography.labelMedium, color = if (active) Night.text else Night.muted)
             }
         }
     }
@@ -331,10 +336,10 @@ private fun RegionCard(region: Region, progress: Progress, countryCount: Int?, o
     NightCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Eyebrow(if (region.kind == RegionKind.WORLD) "De hele wereld" else "Werelddeel")
-                Text(region.name, style = MaterialTheme.typography.headlineMedium, color = Night.text)
+                Eyebrow(if (region.kind == RegionKind.WORLD) tr("The whole world", "De hele wereld") else tr("Continent", "Werelddeel"))
+                Text(region.name.text, style = MaterialTheme.typography.headlineMedium, color = Night.text)
                 Text(
-                    listOfNotNull(countryCount?.let { "$it landen" }, region.tagline).joinToString(" · "),
+                    listOfNotNull(countryCount?.let { tr("$it countries", "$it landen") }, region.tagline.text).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium, color = Night.muted,
                 )
             }
@@ -342,14 +347,14 @@ private fun RegionCard(region: Region, progress: Progress, countryCount: Int?, o
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlowButton("Kies onderwerp", onStart, Modifier.weight(1f))
+            GlowButton(tr("Choose topic", "Kies onderwerp"), onStart, Modifier.weight(1f))
             PickButton(onPick)
         }
     }
 }
 
 @Composable
-private fun PickButton(onClick: () -> Unit, label: String = "Land") {
+private fun PickButton(onClick: () -> Unit, label: String = tr("Country", "Land")) {
     OutlinedButton(
         onClick = onClick,
         border = BorderStroke(1.dp, Night.outline),
@@ -370,29 +375,30 @@ private fun CountryCard(
     onLearn: (RegionId) -> Unit,
     onPick: () -> Unit,
 ) {
+    val lang = LocalLang.current
     NightCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(country.flag, fontSize = 40.sp)
+            FlagImage(country, height = 40.dp, maxWidth = 72.dp, shadow = true)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Eyebrow(
-                    country.continents.mapNotNull { world.continents[it]?.name }.joinToString(" en ") +
-                        if (!country.sovereign) " · gebied" else "",
+                    country.continents.mapNotNull { world.continents[it]?.name(lang) }.joinToString(tr(" and ", " en ")) +
+                        if (!country.sovereign) tr(" · territory", " · gebied") else "",
                 )
-                Text(country.name, style = MaterialTheme.typography.headlineMedium, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(country.name(lang), style = MaterialTheme.typography.headlineMedium, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Sluiten", tint = Night.muted) }
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, tr("Close", "Sluiten"), tint = Night.muted) }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Fact("Hoofdstad", country.capital ?: "–", Modifier.weight(1.3f))
-            Fact("Inwoners", formatPopulation(country.population), Modifier.weight(1f))
-            Fact("Oppervlakte", formatArea(country.areaKm2), Modifier.weight(1.1f))
+            Fact(tr("Capital", "Hoofdstad"), country.capital(lang) ?: "–", Modifier.weight(1.3f))
+            Fact(tr("People", "Inwoners"), formatPopulation(country.population, lang), Modifier.weight(1f))
+            Fact(tr("Area", "Oppervlakte"), formatArea(country.areaKm2, lang), Modifier.weight(1.1f))
         }
         val neighbours = country.neighbours.mapNotNull { world.countries[it] }
         if (neighbours.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Eyebrow("Buurlanden")
+            Eyebrow(tr("Neighbours", "Buurlanden"))
             Spacer(Modifier.height(6.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 neighbours.forEach { n ->
@@ -405,9 +411,9 @@ private fun CountryCard(
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(n.flag, fontSize = 14.sp)
+                        FlagImage(n, height = 14.dp)
                         Spacer(Modifier.width(6.dp))
-                        Text(n.name, style = MaterialTheme.typography.labelMedium, color = Night.text)
+                        Text(n.name(lang), style = MaterialTheme.typography.labelMedium, color = Night.text)
                     }
                 }
             }
@@ -416,21 +422,21 @@ private fun CountryCard(
         val own = Content.forCountry(country.code)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (own != null) {
-                GlowButton("Leer ${country.name}", { onLearn(own.id) }, Modifier.weight(1f))
+                GlowButton(tr("Learn ${country.name(lang)}", "Leer ${country.name(lang)}"), { onLearn(own.id) }, Modifier.weight(1f))
             } else {
                 val home = country.continents.firstOrNull()?.let { Content.forContinent(it) }
                 Column(Modifier.weight(1f)) {
-                    Text("Onderwerpen voor dit land komen later.", style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                    Text(tr("Topics for this country are coming later.", "Onderwerpen voor dit land komen later."), style = MaterialTheme.typography.bodySmall, color = Night.muted)
                     if (home != null) {
                         Text(
-                            "Oefen ${home.name} →",
+                            tr("Practise ${home.name.text} →", "Oefen ${home.name.text} →"),
                             style = MaterialTheme.typography.labelLarge, color = Night.glow,
                             modifier = Modifier.clickable { onLearn(home.id) }.padding(top = 4.dp),
                         )
                     }
                 }
             }
-            PickButton(onPick, "Ander land")
+            PickButton(onPick, tr("Other country", "Ander land"))
         }
     }
 }
@@ -466,8 +472,8 @@ private fun ContinueRow(last: LastPlayed, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Verder spelen", style = MaterialTheme.typography.labelSmall, color = Night.muted)
-            Text("${Content.region(last.region).name} · ${topic.name}", style = MaterialTheme.typography.titleSmall, color = Night.text)
+            Text(tr("Continue", "Verder spelen"), style = MaterialTheme.typography.labelSmall, color = Night.muted)
+            Text("${Content.region(last.region).name.text} · ${topic.name.text}", style = MaterialTheme.typography.titleSmall, color = Night.text)
         }
         StarsText(last.level)
     }

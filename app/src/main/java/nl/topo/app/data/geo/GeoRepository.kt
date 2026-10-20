@@ -3,6 +3,7 @@ package nl.topo.app.data.geo
 import android.content.res.AssetManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import nl.topo.app.data.i18n.Txt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,8 +31,10 @@ private data class NeProjJson(val k: Double, val ox: Double, val oy: Double)
 @Serializable
 private data class CountryJson(
     val n: String,
+    val ne: String = n,
     val a2: String,
     val cap: String? = null,
+    val ce: String? = cap,
     val cll: List<Double>? = null,
     val pop: Long = 0,
     val area: Double? = null,
@@ -44,7 +47,7 @@ private data class CountryJson(
 )
 
 @Serializable
-private data class ContJson(val n: String, val v: List<Float>, val c: List<Float>)
+private data class ContJson(val n: String, val ne: String = n, val v: List<Float>, val c: List<Float>)
 
 @Serializable
 private data class WorldJson(
@@ -81,9 +84,9 @@ class GeoRepository(private val assets: AssetManager) {
             val countries = raw.c.mapValues { (code, c) ->
                 Country(
                     code = code,
-                    name = c.n,
+                    names = Txt(en = c.ne, nl = c.n),
                     iso2 = c.a2,
-                    capital = c.cap,
+                    capitals = c.cap?.let { nl -> Txt(en = c.ce ?: nl, nl = nl) },
                     capitalPos = c.cll?.let { proj.project(it[0], it[1]) },
                     population = c.pop,
                     areaKm2 = c.area,
@@ -95,7 +98,7 @@ class GeoRepository(private val assets: AssetManager) {
                 )
             }
             val continents = raw.cont.mapNotNull { (k, v) ->
-                Continent.of(k)?.let { it to ContinentInfo(it, v.n, Rect(v.v[0], v.v[1], v.v[2], v.v[3]), Offset(v.c[0], v.c[1])) }
+                Continent.of(k)?.let { it to ContinentInfo(it, Txt(en = v.ne, nl = v.n), Rect(v.v[0], v.v[1], v.v[2], v.v[3]), Offset(v.c[0], v.c[1])) }
             }.toMap()
             WorldMap(geo, countries, continents)
         }.also { world = it }
