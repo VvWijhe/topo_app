@@ -1,5 +1,6 @@
 package nl.topo.app.data.content
 
+import nl.topo.app.data.geo.Continent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.BeachAccess
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.PinDrop
 import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SquareFoot
 import androidx.compose.material.icons.rounded.Terrain
 import androidx.compose.material.icons.rounded.TextFields
@@ -21,7 +23,9 @@ import androidx.compose.material.icons.rounded.Water
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.ui.graphics.vector.ImageVector
 
-enum class RegionId { NEDERLAND, EUROPA, WERELD }
+enum class RegionId { NEDERLAND, EUROPA, WERELD, AZIE, AFRIKA, NOORD_AMERIKA, ZUID_AMERIKA, OCEANIE }
+
+enum class RegionKind { WORLD, CONTINENT, COUNTRY }
 
 data class Topic(
     val id: String,
@@ -39,6 +43,11 @@ data class Region(
     val name: String,
     val tagline: String,
     val available: Boolean,
+    val kind: RegionKind,
+    /** Bij een werelddeel: welk werelddeel op de kaart. */
+    val continent: Continent? = null,
+    /** Bij een land: ISO-code op de kaart (NLD). */
+    val countryCode: String? = null,
     /** Wat elk niveau in deze regio betekent (index 0 = ★). */
     val levelScope: List<String>,
     val groups: List<TopicGroup>,
@@ -65,6 +74,8 @@ object Content {
         name = "Nederland",
         tagline = "Provincies, steden en water",
         available = true,
+        kind = RegionKind.COUNTRY,
+        countryCode = "NLD",
         levelScope = listOf("de basis", "meer plaatsen", "alles", "alles"),
         groups = listOf(
             TopicGroup(
@@ -83,8 +94,10 @@ object Content {
     val europa = Region(
         id = RegionId.EUROPA,
         name = "Europa",
-        tagline = "50 landen en alles eromheen",
+        tagline = "Van Lissabon tot de Oeral",
         available = true,
+        kind = RegionKind.CONTINENT,
+        continent = Continent.EU,
         levelScope = listOf("16 bekende landen", "30 landen", "42 landen", "alle 50 landen"),
         groups = listOf(
             TopicGroup(
@@ -117,16 +130,57 @@ object Content {
         ),
     )
 
+    /** Onderwerpen die voor elk werelddeel werken. */
+    private fun landTopics(extra: List<Topic> = emptyList()) = listOf(
+        TopicGroup(
+            "Landen", "Alle landen van dit gebied",
+            listOf(
+                Topic("kaart", "Zoeken op de kaart", "Tik het land aan", Icons.Rounded.Place),
+                Topic("hoofdstad", "Hoofdstad", "Wat is de hoofdstad?", Icons.Rounded.AccountBalance),
+                Topic("hoofdstad-kaart", "Hoofdstad op de kaart", "Tik de hoofdstad aan", Icons.Rounded.PinDrop),
+                Topic("vlag", "Vlag", "Van welk land is deze vlag?", Icons.Rounded.Flag),
+                Topic("contour", "Grenscontouren", "Welk land heeft deze vorm?", Icons.Rounded.Gesture),
+                Topic("buurlanden", "Buurlanden", "Welk land grenst eraan?", Icons.Rounded.Link),
+                Topic("bevolking", "Bevolking", "Hoeveel inwoners?", Icons.Rounded.Groups),
+                Topic("oppervlakte", "Oppervlakte", "Hoe groot is het land?", Icons.Rounded.SquareFoot),
+            ) + extra,
+        ),
+    )
+
+    private val continentScope = listOf("bekendste landen", "meer landen", "bijna alle landen", "alle landen")
+
+    private fun continent(id: RegionId, c: Continent, name: String, tagline: String) = Region(
+        id = id, name = name, tagline = tagline, available = true,
+        kind = RegionKind.CONTINENT, continent = c,
+        levelScope = continentScope, groups = landTopics(),
+    )
+
     val wereld = Region(
         id = RegionId.WERELD,
         name = "Wereld",
-        tagline = "Binnenkort",
-        available = false,
-        levelScope = listOf("", "", "", ""),
-        groups = emptyList(),
+        tagline = "Alle landen, alle werelddelen",
+        available = true,
+        kind = RegionKind.WORLD,
+        levelScope = listOf("bekendste landen", "meer landen", "bijna alle landen", "alle landen"),
+        groups = landTopics(listOf(Topic("werelddeel", "Werelddeel", "In welk werelddeel ligt het?", Icons.Rounded.Public))),
     )
 
-    val regions = listOf(nederland, europa, wereld)
+    val azie = continent(RegionId.AZIE, Continent.AS, "Azië", "Van Istanbul tot Tokio")
+    val afrika = continent(RegionId.AFRIKA, Continent.AF, "Afrika", "Van Caïro tot Kaapstad")
+    val noordAmerika = continent(RegionId.NOORD_AMERIKA, Continent.NA, "Noord-Amerika", "Van Groenland tot Panama")
+    val zuidAmerika = continent(RegionId.ZUID_AMERIKA, Continent.SA, "Zuid-Amerika", "Van Colombia tot Vuurland")
+    val oceanie = continent(RegionId.OCEANIE, Continent.OC, "Oceanië", "Australië en de eilanden van de Grote Oceaan")
+
+    /** Volgorde van de keuzes op het startscherm. */
+    val regions = listOf(wereld, europa, azie, afrika, noordAmerika, zuidAmerika, oceanie, nederland)
+
+    /** Wat je bovenaan het startscherm kiest: de wereld en de werelddelen. */
+    val mapRegions = regions.filter { it.kind != RegionKind.COUNTRY }
+
+    fun forContinent(c: Continent): Region = regions.first { it.continent == c }
+
+    /** Landen met eigen onderwerpen (nu alleen Nederland). */
+    fun forCountry(code: String): Region? = regions.firstOrNull { it.countryCode == code }
 
     fun region(id: RegionId): Region = regions.first { it.id == id }
     fun topic(region: RegionId, topicId: String): Topic? = region(region).topics.firstOrNull { it.id == topicId }
