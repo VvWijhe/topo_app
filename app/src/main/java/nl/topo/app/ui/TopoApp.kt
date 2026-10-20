@@ -4,7 +4,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Insights
@@ -76,7 +78,8 @@ fun TopoApp() {
             NavHost(
                 navController = nav,
                 startDestination = Routes.HOME,
-                modifier = Modifier.padding(inner),
+                // Alleen onderaan opvullen: het startscherm loopt door tot onder de statusbalk.
+                modifier = Modifier.padding(bottom = inner.calculateBottomPadding()),
                 enterTransition = { fadeIn() + slideInHorizontally { it / 12 } },
                 exitTransition = { fadeOut() },
                 popEnterTransition = { fadeIn() },
@@ -89,19 +92,23 @@ fun TopoApp() {
                     )
                 }
                 composable(Routes.PROGRESS) {
-                    ProgressScreen(
-                        onOpenRegion = { nav.navigate(Routes.region(it)) },
-                        onGoToMap = { nav.switchTab(Routes.HOME) },
-                    )
+                    Box(Modifier.statusBarsPadding()) {
+                        ProgressScreen(
+                            onOpenRegion = { nav.navigate(Routes.region(it)) },
+                            onGoToMap = { nav.switchTab(Routes.HOME) },
+                        )
+                    }
                 }
-                composable(Routes.SETTINGS) { SettingsScreen() }
+                composable(Routes.SETTINGS) { Box(Modifier.statusBarsPadding()) { SettingsScreen() } }
                 composable(Routes.REGION, arguments = listOf(navArgument("region") { type = NavType.StringType })) { e ->
                     val id = RegionId.valueOf(e.arguments?.getString("region") ?: RegionId.EUROPA.name)
-                    RegionScreen(
-                        regionId = id,
-                        onBack = { nav.popBackStack() },
-                        onPlay = { topic, level -> nav.navigate(Routes.quiz(id, topic, level)) },
-                    )
+                    Box(Modifier.statusBarsPadding()) {
+                        RegionScreen(
+                            regionId = id,
+                            onBack = { nav.popBackStack() },
+                            onPlay = { topic, level -> nav.navigate(Routes.quiz(id, topic, level)) },
+                        )
+                    }
                 }
                 composable(
                     Routes.QUIZ,
@@ -112,12 +119,14 @@ fun TopoApp() {
                     ),
                 ) { e ->
                     val a = e.arguments
-                    QuizScreen(
-                        regionId = RegionId.valueOf(a?.getString("region") ?: RegionId.EUROPA.name),
-                        topicId = a?.getString("topic") ?: "",
-                        level = a?.getInt("level") ?: 1,
-                        onBack = { nav.popBackStack() },
-                    )
+                    Box(Modifier.statusBarsPadding()) {
+                        QuizScreen(
+                            regionId = RegionId.valueOf(a?.getString("region") ?: RegionId.EUROPA.name),
+                            topicId = a?.getString("topic") ?: "",
+                            level = a?.getInt("level") ?: 1,
+                            onBack = { nav.popBackStack() },
+                        )
+                    }
                 }
             }
         }

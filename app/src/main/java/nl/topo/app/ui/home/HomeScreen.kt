@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,7 +74,7 @@ import nl.topo.app.ui.components.anchorAt
 import nl.topo.app.ui.theme.Night
 
 /** Uitsnede van de Europakaart voor het startscherm (kaart-eenheden). */
-private val HomeViewport = Rect(170f, 150f, 880f, 830f)
+private val HomeViewport = Rect(40f, 60f, 1010f, 860f)
 
 @Composable
 fun HomeScreen(
@@ -94,21 +98,9 @@ fun HomeScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        // ---------- kop ----------
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Topo", style = MaterialTheme.typography.displayMedium, color = Night.text)
-                Text("Tik een gebied aan op de kaart", style = MaterialTheme.typography.bodyMedium, color = Night.muted)
-            }
-            StreakChip(progress.streak)
-        }
-
         // ---------- kaart ----------
         // clipToBounds: de kaart mag niet over de kop of het paneel heen tekenen.
-        Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 220.dp).clipToBounds()) {
+        Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 300.dp).clipToBounds()) {
             val m = map
             if (m == null) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center), color = Night.glow)
@@ -140,6 +132,8 @@ fun HomeScreen(
                     map = m,
                     viewport = viewport,
                     modifier = Modifier.fillMaxSize(),
+                    padTop = 96.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                    padBottom = 16.dp,
                     glow = glow,
                     glowColor = if (selected == RegionId.NEDERLAND) Night.ember else Night.glow,
                     pulseAt = if (zoomedIn) null else m.labels["NLD"],
@@ -161,7 +155,7 @@ fun HomeScreen(
                     }
                     if (zoomedIn) {
                         // Terug naar Europa: knop linksboven op de kaart
-                        MapTag("← Europa", Night.glow, false, Modifier.align(Alignment.TopStart).padding(12.dp)) { select(RegionId.EUROPA) }
+                        MapTag("← Europa", Night.glow, false, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 112.dp)) { select(RegionId.EUROPA) }
                     } else {
                         MapTag("Europa", Night.glow, true, Modifier.anchorAt(tf.toScreen(m.projection.project(50.2, 17.5)), 0.5f, 0.5f)) { select(RegionId.EUROPA) }
                     }
@@ -171,6 +165,22 @@ fun HomeScreen(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(40.dp)
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Night.sky.copy(alpha = 0.9f)))),
                 )
+            }
+            // ---------- kop: zweeft over de kaart ----------
+            Row(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Night.skyHigh.copy(alpha = 0.92f), Night.sky.copy(alpha = 0.6f), Color.Transparent)))
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Topo", style = MaterialTheme.typography.displayMedium, color = Night.text)
+                    Text("Tik een gebied aan op de kaart", style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+                }
+                StreakChip(progress.streak)
             }
         }
 
@@ -236,20 +246,13 @@ private fun RegionCard(region: Region, progress: Progress, onStart: () -> Unit) 
             }
             ProgressRing(progress.fraction(region))
         }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "${region.topics.size} onderwerpen · 4 niveaus · ${progress.mastered(region)} van ${region.cellCount} vakjes gekend",
+            style = MaterialTheme.typography.bodySmall, color = Night.muted,
+        )
         Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "${region.topics.size} onderwerpen · 4 niveaus",
-                    style = MaterialTheme.typography.labelMedium, color = Night.text,
-                )
-                Text(
-                    "${progress.mastered(region)} van ${region.cellCount} vakjes gekend (≥ ${Levels.MASTERED}%)",
-                    style = MaterialTheme.typography.bodySmall, color = Night.muted,
-                )
-            }
-            GlowButton("Kies onderwerp", onStart)
-        }
+        GlowButton("Kies onderwerp", onStart, Modifier.fillMaxWidth())
     }
 }
 
