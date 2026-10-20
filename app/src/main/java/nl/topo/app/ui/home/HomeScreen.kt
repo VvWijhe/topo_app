@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -106,7 +107,8 @@ fun HomeScreen(
         }
 
         // ---------- kaart ----------
-        Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 220.dp)) {
+        // clipToBounds: de kaart mag niet over de kop of het paneel heen tekenen.
+        Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 220.dp).clipToBounds()) {
             val m = map
             if (m == null) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center), color = Night.glow)
