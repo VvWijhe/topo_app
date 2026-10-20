@@ -159,6 +159,7 @@ for a3, e in groups.items():
         'cont': sorted(cont), 'nb': nb, 'lbl': [round(lbl[0], 1), round(lbl[1], 1)],
         'b': [round(bx0, 1), round(by0, 1), round(bx1, 1), round(by1, 1)],
         'd': ''.join(ringstr(r) for r in out),
+        'tld': (m['tld'][0] if m and m.get('tld') else None),
         'sov': p['TYPE'] in ('Sovereign country', 'Sovereignty') or code in ('USA','GBR','NZL','NLD','FRA','FIN','DNK','CHN','AUS','ISR'),
     }
 for c in countries.values():
@@ -178,6 +179,23 @@ for f in json.load(open('data/ne_lakes.geojson'))['features']:
         r = [pr(x, y) for x, y in pl[0]]
         if area(r) >= 2: lakes.append(ringstr(simp(r, TOL)))
 
+# ---------- Europese rivieren (als lijnen) ----------
+RIV = {'Rijn':['Rhein','Rhin','Rhine','Waal'],'Donau':['Danube','Donau','Bratul Sulina'],'Elbe':['Elbe'],'Oder':['Oder'],'Wisła':['Vistula'],
+       'Dnjepr':['Dnipro','Dnepre'],'Dnjestr':['Dniester'],'Don':['Don'],'Wolga':['Volga'],'Loire':['Loire'],'Seine':['Seine'],'Rhône':['Rhône'],
+       'Garonne':['Garonne'],'Po':['Po'],'Taag':['Tajo','Tejo'],'Ebro':['Ebro'],'Douro':['Duero','Douro'],'Theems':['Thames'],'Daugava':['Daugava'],
+       'Tisza':['Tisza','Tisa']}
+inv = {n: k for k, v in RIV.items() for n in v}
+rivers = {}
+for f in json.load(open('data/ne_rivers_lake_centerlines.geojson'))['features']:
+    n = f['properties'].get('name')
+    if n not in inv: continue
+    g = f['geometry']; ls = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']]
+    for l in ls:
+        if not any(-12 < x < 60 and 34 < y < 70 for x, y in l): continue
+        if n == 'Don' and min(x for x, _ in l) > 45: continue
+        r = dp([pr(x, y) for x, y in l], TOL)
+        rivers[inv[n]] = rivers.get(inv[n], '') + 'M' + 'L'.join(f'{x:.1f},{y:.1f}' for x, y in r)
+
 def bbox_ll(lon0, lon1, lat0, lat1):
     pts = [pr(lo, la) for lo in [lon0 + (lon1-lon0)*i/20 for i in range(21)] for la in [lat0 + (lat1-lat0)*j/20 for j in range(21)]]
     return [round(min(x for x, _ in pts), 1), round(min(y for _, y in pts), 1), round(max(x for x, _ in pts), 1), round(max(y for _, y in pts), 1)]
@@ -192,7 +210,7 @@ CONTS = {
 CTR = {'EU': (50, 15), 'AS': (45, 90), 'AF': (5, 20), 'NA': (48, -100), 'SA': (-15, -60), 'OC': (-25, 140)}
 out = {
     'vb': [W, round(H, 1)], 'proj': {'k': K, 'ox': OX, 'oy': OY},
-    'c': countries, 'bg': bgd, 'lakes': lakes,
+    'c': countries, 'bg': bgd, 'lakes': lakes, 'riv': rivers,
     'cont': {k: {'n': v[0], 'ne': v[2], 'v': v[1], 'c': [round(x, 1) for x in pr(CTR[k][1], CTR[k][0])]} for k, v in CONTS.items()},
 }
 s = json.dumps(out, ensure_ascii=False, separators=(',', ':'))

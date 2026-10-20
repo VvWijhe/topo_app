@@ -38,6 +38,33 @@ class GeoShape(val rings: List<FloatArray>) {
         }
     }
 
+    /** Kortste afstand van [p] tot de lijnen van deze vorm (voor rivieren). */
+    fun distanceTo(p: Offset): Float {
+        var best = Float.MAX_VALUE
+        for (ring in rings) {
+            var i = 2
+            while (i < ring.size) {
+                val ax = ring[i - 2]; val ay = ring[i - 1]; val bx = ring[i]; val by = ring[i + 1]
+                val dx = bx - ax; val dy = by - ay
+                val len2 = dx * dx + dy * dy
+                val t = if (len2 == 0f) 0f else (((p.x - ax) * dx + (p.y - ay) * dy) / len2).coerceIn(0f, 1f)
+                val ex = ax + t * dx - p.x; val ey = ay + t * dy - p.y
+                val d = kotlin.math.sqrt(ex * ex + ey * ey)
+                if (d < best) best = d
+                i += 2
+            }
+        }
+        return best
+    }
+
+    /** Alleen de delen binnen [area] (bijv. Frankrijk zonder Frans-Guyana). */
+    fun within(area: Rect): GeoShape = GeoShape(rings.filter { r ->
+        var cx = 0f; var cy = 0f; val n = r.size / 2
+        var i = 0
+        while (i < r.size) { cx += r[i]; cy += r[i + 1]; i += 2 }
+        area.contains(Offset(cx / n, cy / n))
+    }.ifEmpty { rings })
+
     /** Even-odd test: ligt het punt binnen deze vorm? */
     fun contains(p: Offset): Boolean {
         if (!bounds.contains(p)) return false
@@ -75,6 +102,13 @@ class NaturalEarthProjection(private val k: Double, private val ox: Double, priv
         val y = phi * (1.007226 + p2 * (0.015085 + p4 * (-0.044475 + 0.028874 * p2 - 0.005916 * p4)))
         return Offset((ox + x * k).toFloat(), (oy - y * k).toFloat())
     }
+}
+
+/** Eenvoudige projectie van de Nederland-kaart (lengtegraden geschaald met cos 52,2°). */
+class NederlandProjection(private val x0: Double, private val y0: Double, private val s: Double, private val pad: Double) : MapProjection {
+    private val k = Math.cos(Math.toRadians(52.2))
+    override fun project(lat: Double, lon: Double): Offset =
+        Offset((pad + (lon - x0) * k * s).toFloat(), (pad + (y0 - lat) * s).toFloat())
 }
 
 /**

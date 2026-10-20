@@ -44,6 +44,7 @@ private data class CountryJson(
     val b: List<Float>,
     val d: String,
     val sov: Boolean = true,
+    val tld: String? = null,
 )
 
 @Serializable
@@ -57,7 +58,17 @@ private data class WorldJson(
     val bg: List<String>,
     val lakes: List<String>,
     val cont: Map<String, ContJson>,
+    val riv: Map<String, String> = emptyMap(),
 )
+
+@Serializable
+private data class NlProjJson(val x0: Double, val y0: Double, val s: Double, val pad: Double)
+
+@Serializable
+private data class NederlandJson(val vb: List<Float>, val prov: Map<String, String>, val isl: Map<String, String>, val proj: NlProjJson)
+
+/** De kaart van Nederland: provincies als vlakken, plus de Waddeneilanden los. */
+class NederlandMap(val geo: GeoMap, val islands: Map<String, GeoShape>)
 
 /** Laadt kaartdata uit de app-assets en houdt ze in het geheugen. */
 class GeoRepository(private val assets: AssetManager) {
@@ -65,6 +76,23 @@ class GeoRepository(private val assets: AssetManager) {
     private val mutex = Mutex()
     private var europe: GeoMap? = null
     private var world: WorldMap? = null
+    private var nederland: NederlandMap? = null
+
+    suspend fun nederland(): NederlandMap = mutex.withLock {
+        nederland ?: withContext(Dispatchers.Default) {
+            val text = assets.open("geo/nederland.json").bufferedReader().use { it.readText() }
+            val raw = json.decodeFromString(NederlandJson.serializer(), text)
+            val proj = NederlandProjection(raw.proj.x0, raw.proj.y0, raw.proj.s, raw.proj.pad)
+            val provinces = raw.prov.mapValues { parsePath(it.value) }
+            val geo = GeoMap(
+                width = raw.vb[0], height = raw.vb[1],
+                countries = provinces, background = emptyList(), lakes = emptyList(), rivers = emptyMap(),
+                labels = provinces.mapValues { it.value.bounds.center },
+                projection = proj,
+            )
+            NederlandMap(geo, raw.isl.mapValues { parsePath(it.value) })
+        }.also { nederland = it }
+    }
 
     suspend fun world(): WorldMap = mutex.withLock {
         world ?: withContext(Dispatchers.Default) {
@@ -100,7 +128,11 @@ class GeoRepository(private val assets: AssetManager) {
             val continents = raw.cont.mapNotNull { (k, v) ->
                 Continent.of(k)?.let { it to ContinentInfo(it, Txt(en = v.ne, nl = v.n), Rect(v.v[0], v.v[1], v.v[2], v.v[3]), Offset(v.c[0], v.c[1])) }
             }.toMap()
-            WorldMap(geo, countries, continents)
+            WorldMap(
+                geo, countries, continents,
+                rivers = raw.riv.mapValues { parsePath(it.value) },
+                tld = raw.c.mapNotNull { (k, v) -> v.tld?.let { k to it } }.toMap(),
+            )
         }.also { world = it }
     }
 
