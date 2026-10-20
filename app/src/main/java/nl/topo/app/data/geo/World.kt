@@ -55,6 +55,10 @@ class WorldMap(
     val geo: GeoMap,
     val countries: Map<String, Country>,
     val continents: Map<Continent, ContinentInfo>,
+    /** Grote Europese rivieren, op Nederlandse naam (Rijn, Donau …). */
+    val rivers: Map<String, GeoShape> = emptyMap(),
+    /** Internetextensie per land (.nl). */
+    val tld: Map<String, String> = emptyMap(),
 ) {
     /** Hele wereld, zonder Antarctica. */
     val worldViewport: Rect = Rect(0f, geo.height * 0.04f, geo.width, geo.height * 0.84f)

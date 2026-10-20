@@ -184,8 +184,7 @@ object Content {
     fun forCountry(code: String): Region? = regions.firstOrNull { it.countryCode == code }
 
     /** Onderwerpen waarvan de quiz al echt werkt. */
-    fun isPlayable(region: Region, topicId: String): Boolean =
-        topicId == "vlag" && region.kind != RegionKind.COUNTRY
+    fun isPlayable(region: Region, topicId: String): Boolean = true
 
     fun region(id: RegionId): Region = regions.first { it.id == id }
     fun topic(region: RegionId, topicId: String): Topic? = region(region).topics.firstOrNull { it.id == topicId }

@@ -44,7 +44,9 @@ import nl.topo.app.data.prefs.RoundLength
 import nl.topo.app.data.i18n.LocalLang
 import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
-import nl.topo.app.data.quiz.FlagGame
+import nl.topo.app.data.geo.NederlandMap
+import nl.topo.app.data.quiz.QuizFactory
+import nl.topo.app.data.quiz.QuizGame
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
@@ -56,36 +58,40 @@ import nl.topo.app.ui.theme.Night
 @Composable
 fun QuizScreen(regionId: RegionId, topicId: String, level: Int, onBack: () -> Unit) {
     val region = Content.region(regionId)
-    if (topicId == "vlag" && region.kind != RegionKind.COUNTRY) {
-        FlagQuizRoute(region, level, onBack)
-    } else {
-        PlaceholderQuiz(regionId, topicId, level, onBack)
-    }
+    QuizRoute(region, topicId, level, onBack)
 }
 
 @Composable
-private fun FlagQuizRoute(region: Region, startLevel: Int, onBack: () -> Unit) {
+private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: () -> Unit) {
     val app = LocalAppContainer.current
     val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
-    val world by produceState<WorldMap?>(null) { value = app.geo.world() }
+    val needsWorld = region.kind != RegionKind.COUNTRY
+    val world by produceState<WorldMap?>(null) { if (needsWorld) value = app.geo.world() }
+    val nl by produceState<NederlandMap?>(null) { if (!needsWorld) value = app.geo.nederland() }
     var level by rememberSaveable { mutableIntStateOf(startLevel) }
     var record by remember { mutableStateOf<Boolean?>(null) }
-    val w = world
-    if (w == null) {
+    if ((needsWorld && world == null) || (!needsWorld && nl == null)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
         return
     }
+    val setup = remember(region, topicId, level, world, nl) { QuizFactory.create(region, topicId, level, world, nl) }
+    if (setup == null || setup.itemIds.isEmpty()) {
+        PlaceholderQuiz(region.id, topicId, level, onBack)
+        return
+    }
     val roundLength = if (settings.roundLength == RoundLength.ALL) null else 10
-    val game = remember(level, w, roundLength) { FlagGame(w, region.continent, level, roundLength) }
+    val game = remember(setup, roundLength) { QuizGame(setup, roundLength) }
     // Uitslag opslaan zodra de ronde klaar is.
     LaunchedEffect(game, game.finished) {
-        if (game.finished) record = app.progress.recordRound(region.id, "vlag", level, game.percent)
-        else record = null
+        record = if (game.finished) app.progress.recordRound(region.id, topicId, level, game.percent) else null
     }
-    FlagQuizScreen(
+    QuizPlayScreen(
+        setup = setup,
         game = game,
         region = region,
+        level = level,
         haptics = settings.haptics,
+        mapLabels = settings.mapLabels,
         record = record,
         onBack = onBack,
         onNextLevel = if (level < 4) ({ level += 1 }) else null,
