@@ -1,6 +1,7 @@
 package nl.topo.app.ui.quiz
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,24 +13,35 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import nl.topo.app.data.content.Content
 import nl.topo.app.data.content.Levels
+import nl.topo.app.data.content.Region
 import nl.topo.app.data.content.RegionId
+import nl.topo.app.data.content.RegionKind
+import nl.topo.app.data.geo.WorldMap
+import nl.topo.app.data.prefs.RoundLength
+import nl.topo.app.data.quiz.FlagGame
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
@@ -37,12 +49,52 @@ import nl.topo.app.ui.components.NightCard
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.theme.Night
 
-/**
- * Plek voor het quizscherm. Dit is de volgende bouwstap; nu staat hier een testknop
- * waarmee je een ronde kunt nabootsen, zodat de voortgang en de vakjes al werken.
- */
+/** Kiest het juiste quizscherm bij een onderwerp. */
 @Composable
 fun QuizScreen(regionId: RegionId, topicId: String, level: Int, onBack: () -> Unit) {
+    val region = Content.region(regionId)
+    if (topicId == "vlag" && region.kind != RegionKind.COUNTRY) {
+        FlagQuizRoute(region, level, onBack)
+    } else {
+        PlaceholderQuiz(regionId, topicId, level, onBack)
+    }
+}
+
+@Composable
+private fun FlagQuizRoute(region: Region, startLevel: Int, onBack: () -> Unit) {
+    val app = LocalAppContainer.current
+    val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
+    val world by produceState<WorldMap?>(null) { value = app.geo.world() }
+    var level by rememberSaveable { mutableIntStateOf(startLevel) }
+    var record by remember { mutableStateOf<Boolean?>(null) }
+    val w = world
+    if (w == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
+        return
+    }
+    val roundLength = if (settings.roundLength == RoundLength.ALL) null else 10
+    val game = remember(level, w, roundLength) { FlagGame(w, region.continent, level, roundLength) }
+    // Uitslag opslaan zodra de ronde klaar is.
+    LaunchedEffect(game, game.finished) {
+        if (game.finished) record = app.progress.recordRound(region.id, "vlag", level, game.percent)
+        else record = null
+    }
+    FlagQuizScreen(
+        game = game,
+        region = region,
+        haptics = settings.haptics,
+        record = record,
+        onBack = onBack,
+        onNextLevel = if (level < 4) ({ level += 1 }) else null,
+    )
+}
+
+/**
+ * Tijdelijk scherm voor onderwerpen die nog niet speelbaar zijn; met testknoppen
+ * om een ronde na te bootsen, zodat de voortgang en de vakjes al werken.
+ */
+@Composable
+private fun PlaceholderQuiz(regionId: RegionId, topicId: String, level: Int, onBack: () -> Unit) {
     val app = LocalAppContainer.current
     val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
     val region = Content.region(regionId)
@@ -66,10 +118,10 @@ fun QuizScreen(regionId: RegionId, topicId: String, level: Int, onBack: () -> Un
         }
 
         NightCard(Modifier.fillMaxWidth()) {
-            Text("Hier komt de quiz", style = MaterialTheme.typography.headlineSmall, color = Night.text)
+            Text("Dit onderwerp komt nog", style = MaterialTheme.typography.headlineSmall, color = Night.text)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Het fundament staat: menu, navigatie, opslag en voortgang. Het quizscherm met de interactieve kaart bouwen we in de volgende stap.",
+                "Speelbaar nu: Vlag, voor de wereld en elk werelddeel. De andere onderwerpen volgen.",
                 style = MaterialTheme.typography.bodyMedium, color = Night.muted,
             )
         }
