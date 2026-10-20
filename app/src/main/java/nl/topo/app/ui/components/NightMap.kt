@@ -29,6 +29,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import nl.topo.app.data.geo.GeoMap
 import nl.topo.app.ui.theme.Night
 import kotlin.math.min
@@ -41,12 +44,14 @@ class MapTransform(val scale: Float, val dx: Float, val dy: Float) {
 
     companion object {
         /** Past het kader in de beschikbare ruimte (alles zichtbaar, gecentreerd). */
-        fun fit(size: Size, viewport: Rect): MapTransform {
-            val s = min(size.width / viewport.width, size.height / viewport.height)
+        /** Past het kader in de ruimte, zonder [padTop]/[padBottom] pixels aan boven- en onderkant. */
+        fun fit(size: Size, viewport: Rect, padTop: Float = 0f, padBottom: Float = 0f): MapTransform {
+            val h = (size.height - padTop - padBottom).coerceAtLeast(1f)
+            val s = min(size.width / viewport.width, h / viewport.height)
             return MapTransform(
                 s,
                 (size.width - viewport.width * s) / 2f - viewport.left * s,
-                (size.height - viewport.height * s) / 2f - viewport.top * s,
+                padTop + (h - viewport.height * s) / 2f - viewport.top * s,
             )
         }
     }
@@ -81,6 +86,9 @@ fun NightMap(
     map: GeoMap,
     viewport: Rect,
     modifier: Modifier = Modifier,
+    /** Ruimte aan boven- en onderkant waar iets over de kaart zweeft; het kader past ertussen. */
+    padTop: Dp = 0.dp,
+    padBottom: Dp = 0.dp,
     glow: Set<String> = emptySet(),
     glowColor: Color = Night.glow,
     pulseAt: Offset? = null,
@@ -95,7 +103,10 @@ fun NightMap(
 
     BoxWithConstraints(modifier.clipToBounds()) {
         val size = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
-        val tf = remember(size, viewport) { MapTransform.fit(size, viewport) }
+        val density = LocalDensity.current
+        val pt = with(density) { padTop.toPx() }
+        val pb = with(density) { padBottom.toPx() }
+        val tf = remember(size, viewport, pt, pb) { MapTransform.fit(size, viewport, pt, pb) }
         Canvas(
             Modifier
                 .fillMaxSize()
