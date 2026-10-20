@@ -1,6 +1,9 @@
 package nl.topo.app.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateRectAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -108,6 +111,22 @@ fun HomeScreen(
             if (m == null) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center), color = Night.glow)
             } else {
+                // Kader per regio: heel Europa, of ingezoomd op Nederland met wat buurland eromheen.
+                val target = remember(selected, m) {
+                    when (selected) {
+                        RegionId.NEDERLAND -> m.countries["NLD"]?.bounds?.let { b ->
+                            val padX = b.width * 0.55f; val padY = b.height * 0.35f
+                            Rect(b.left - padX, b.top - padY, b.right + padX, b.bottom + padY)
+                        } ?: HomeViewport
+                        else -> HomeViewport
+                    }
+                }
+                val viewport by animateRectAsState(
+                    target,
+                    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow),
+                    label = "zoom",
+                )
+                val zoomedIn = selected == RegionId.NEDERLAND
                 val glow = remember(selected, m) {
                     when (selected) {
                         RegionId.NEDERLAND -> setOf("NLD")
@@ -117,11 +136,11 @@ fun HomeScreen(
                 }
                 NightMap(
                     map = m,
-                    viewport = HomeViewport,
+                    viewport = viewport,
                     modifier = Modifier.fillMaxSize(),
                     glow = glow,
                     glowColor = if (selected == RegionId.NEDERLAND) Night.ember else Night.glow,
-                    pulseAt = m.labels["NLD"],
+                    pulseAt = if (zoomedIn) null else m.labels["NLD"],
                     onTap = { p ->
                         when (m.countryAt(p)) {
                             null -> Unit
@@ -132,9 +151,18 @@ fun HomeScreen(
                 ) { tf ->
                     // Labels op de kaart
                     m.labels["NLD"]?.let { p ->
-                        MapTag("Nederland", Night.ember, selected == RegionId.NEDERLAND, Modifier.anchorAt(tf.toScreen(p).copy(y = tf.toScreen(p).y - 14f), ax = 1.05f, ay = 1f)) { select(RegionId.NEDERLAND) }
+                        val s = tf.toScreen(p)
+                        MapTag(
+                            "Nederland", Night.ember, zoomedIn,
+                            if (zoomedIn) Modifier.anchorAt(s, 0.5f, 0.5f) else Modifier.anchorAt(s.copy(y = s.y - 14f), ax = 1.05f, ay = 1f),
+                        ) { select(RegionId.NEDERLAND) }
                     }
-                    MapTag("Europa", Night.glow, selected == RegionId.EUROPA, Modifier.anchorAt(tf.toScreen(m.projection.project(50.2, 17.5)), 0.5f, 0.5f)) { select(RegionId.EUROPA) }
+                    if (zoomedIn) {
+                        // Terug naar Europa: knop linksboven op de kaart
+                        MapTag("← Europa", Night.glow, false, Modifier.align(Alignment.TopStart).padding(12.dp)) { select(RegionId.EUROPA) }
+                    } else {
+                        MapTag("Europa", Night.glow, true, Modifier.anchorAt(tf.toScreen(m.projection.project(50.2, 17.5)), 0.5f, 0.5f)) { select(RegionId.EUROPA) }
+                    }
                 }
                 // zachte overgang naar het paneel eronder
                 Box(
