@@ -56,6 +56,27 @@ class GeoShape(val rings: List<FloatArray>) {
     }
 }
 
+/** Zet breedte-/lengtegraad om naar kaart-eenheden. */
+interface MapProjection {
+    fun project(lat: Double, lon: Double): Offset
+}
+
+/**
+ * Natural Earth I-projectie (Šavrič e.a.): de wereldkaart van de app.
+ * Een compromis tussen vorm en oppervlakte, zoals in moderne atlassen.
+ */
+class NaturalEarthProjection(private val k: Double, private val ox: Double, private val oy: Double) : MapProjection {
+    override fun project(lat: Double, lon: Double): Offset {
+        val lam = Math.toRadians(lon)
+        val phi = Math.toRadians(lat)
+        val p2 = phi * phi
+        val p4 = p2 * p2
+        val x = lam * (0.8707 - 0.131979 * p2 + p4 * (-0.013791 + p4 * (0.003971 * p2 - 0.001529 * p4)))
+        val y = phi * (1.007226 + p2 * (0.015085 + p4 * (-0.044475 + 0.028874 * p2 - 0.005916 * p4)))
+        return Offset((ox + x * k).toFloat(), (oy - y * k).toFloat())
+    }
+}
+
 /**
  * Lambert-azimutale projectie (gelijkvlakkig), zoals Europese atlassen.
  * Zet lengte-/breedtegraad om naar kaart-eenheden en terug.
@@ -64,12 +85,12 @@ class Projection(
     lon0: Double, lat0: Double,
     private val unitKm: Double,
     private val ox: Double, private val oy: Double,
-) {
+) : MapProjection {
     private val l0 = Math.toRadians(lon0)
     private val p0 = Math.toRadians(lat0)
     private val r = 6371.0
 
-    fun project(lat: Double, lon: Double): Offset {
+    override fun project(lat: Double, lon: Double): Offset {
         val l = Math.toRadians(lon) - l0
         val p = Math.toRadians(lat)
         val k = sqrt(2 / (1 + sin(p0) * sin(p) + cos(p0) * cos(p) * cos(l)))
@@ -102,7 +123,7 @@ class GeoMap(
     val rivers: Map<String, GeoShape>,
     /** Goede plek voor de naam van een land. */
     val labels: Map<String, Offset>,
-    val projection: Projection,
+    val projection: MapProjection,
 ) {
     fun countryAt(p: Offset): String? = countries.entries.firstOrNull { it.value.contains(p) }?.key
 }

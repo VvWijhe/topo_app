@@ -7,9 +7,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,23 +19,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,14 +58,18 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.topo.app.data.content.Content
-import nl.topo.app.data.content.Levels
 import nl.topo.app.data.content.Region
 import nl.topo.app.data.content.RegionId
-import nl.topo.app.data.geo.GeoMap
+import nl.topo.app.data.content.RegionKind
+import nl.topo.app.data.geo.Country
+import nl.topo.app.data.geo.WorldMap
 import nl.topo.app.data.prefs.LastPlayed
 import nl.topo.app.data.prefs.Progress
 import nl.topo.app.data.prefs.Settings
@@ -72,9 +83,8 @@ import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.components.StreakChip
 import nl.topo.app.ui.components.anchorAt
 import nl.topo.app.ui.theme.Night
-
-/** Uitsnede van de Europakaart voor het startscherm (kaart-eenheden). */
-private val HomeViewport = Rect(40f, 60f, 1010f, 860f)
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -84,35 +94,49 @@ fun HomeScreen(
     val app = LocalAppContainer.current
     val progress by app.progress.progress.collectAsStateWithLifecycle(Progress())
     val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
-    val map by produceState<GeoMap?>(null) { value = app.geo.europe() }
+    val world by produceState<WorldMap?>(null) { value = app.geo.world() }
     val haptics = LocalHapticFeedback.current
+    val tapReachPx = with(LocalDensity.current) { 22.dp.toPx() }
 
-    var selected by rememberSaveable { mutableStateOf(RegionId.EUROPA) }
+    // Wat er gekozen is: een gebied (wereld of werelddeel) en eventueel een land daarin.
+    var regionId by rememberSaveable { mutableStateOf(RegionId.EUROPA) }
+    var countryCode by rememberSaveable { mutableStateOf<String?>(null) }
     var initialised by rememberSaveable { mutableStateOf(false) }
+    var pickerOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(progress.lastPlayed) {
-        if (!initialised && progress.lastPlayed != null) { selected = progress.lastPlayed!!.region; initialised = true }
+        val last = progress.lastPlayed
+        if (!initialised && last != null) {
+            val r = Content.region(last.region)
+            if (r.kind == RegionKind.COUNTRY) { regionId = RegionId.EUROPA; countryCode = r.countryCode } else regionId = r.id
+            initialised = true
+        }
     }
-    fun select(id: RegionId) {
-        if (id != selected && settings.haptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        selected = id
+    val region = Content.region(regionId)
+    fun tick() { if (settings.haptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+    fun selectRegion(id: RegionId) { if (id != regionId || countryCode != null) tick(); regionId = id; countryCode = null }
+    fun selectCountry(c: Country) {
+        if (c.code != countryCode) tick()
+        // Ligt het land niet in het gekozen gebied, ga dan naar zijn eigen werelddeel.
+        val cont = Content.region(regionId).continent
+        if (cont == null || cont !in c.continents) {
+            c.continents.firstOrNull()?.let { regionId = Content.forContinent(it).id }
+        }
+        countryCode = c.code
     }
 
     Column(Modifier.fillMaxSize()) {
-        // ---------- kaart ----------
-        // clipToBounds: de kaart mag niet over de kop of het paneel heen tekenen.
+        // ---------- kaart, met de kop er zwevend overheen ----------
         Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 300.dp).clipToBounds()) {
-            val m = map
-            if (m == null) {
+            val w = world
+            if (w == null) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center), color = Night.glow)
             } else {
-                // Kader per regio: heel Europa, of ingezoomd op Nederland met wat buurland eromheen.
-                val target = remember(selected, m) {
-                    when (selected) {
-                        RegionId.NEDERLAND -> m.countries["NLD"]?.bounds?.let { b ->
-                            val padX = b.width * 0.55f; val padY = b.height * 0.35f
-                            Rect(b.left - padX, b.top - padY, b.right + padX, b.bottom + padY)
-                        } ?: HomeViewport
-                        else -> HomeViewport
+                val country = countryCode?.let { w.countries[it] }
+                val target = remember(regionId, countryCode, w) {
+                    when {
+                        country != null -> padded(country.bounds)
+                        region.continent != null -> w.continents[region.continent]?.viewport ?: w.worldViewport
+                        else -> w.worldViewport
                     }
                 }
                 val viewport by animateRectAsState(
@@ -120,53 +144,63 @@ fun HomeScreen(
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow),
                     label = "zoom",
                 )
-                val zoomedIn = selected == RegionId.NEDERLAND
-                val glow = remember(selected, m) {
-                    when (selected) {
-                        RegionId.NEDERLAND -> setOf("NLD")
-                        RegionId.EUROPA -> m.countries.keys
-                        RegionId.WERELD -> emptySet()
+                val glow = remember(regionId, countryCode, w) {
+                    when {
+                        country != null -> setOf(country.code)
+                        region.continent != null -> w.countriesIn(region.continent).map { it.code }.toSet()
+                        else -> emptySet()
                     }
                 }
                 NightMap(
-                    map = m,
+                    map = w.geo,
                     viewport = viewport,
                     modifier = Modifier.fillMaxSize(),
                     padTop = 96.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     padBottom = 16.dp,
                     glow = glow,
-                    glowColor = if (selected == RegionId.NEDERLAND) Night.ember else Night.glow,
-                    pulseAt = if (zoomedIn) null else m.labels["NLD"],
-                    onTap = { p ->
-                        when (m.countryAt(p)) {
-                            null -> Unit
-                            "NLD" -> select(RegionId.NEDERLAND)
-                            else -> select(RegionId.EUROPA)
+                    glowColor = if (country != null) Night.ember else Night.glow,
+                    pulseAt = country?.capitalPos,
+                    onTap = { p, tf ->
+                        val reach = tapReachPx / tf.scale
+                        val among = region.continent?.let { w.countriesIn(it) }
+                        val hit = w.countryAt(p, reach, if (country == null) among else null)
+                        when {
+                            hit == null -> if (country != null) countryCode = null
+                            region.kind == RegionKind.WORLD && country == null ->
+                                hit.continents.firstOrNull()?.let { selectRegion(Content.forContinent(it).id) }
+                            else -> selectCountry(hit)
                         }
                     },
                 ) { tf ->
-                    // Labels op de kaart
-                    m.labels["NLD"]?.let { p ->
-                        val s = tf.toScreen(p)
-                        MapTag(
-                            "Nederland", Night.ember, zoomedIn,
-                            if (zoomedIn) Modifier.anchorAt(s, 0.5f, 0.5f) else Modifier.anchorAt(s.copy(y = s.y - 14f), ax = 1.05f, ay = 1f),
-                        ) { select(RegionId.NEDERLAND) }
+                    when {
+                        country != null -> country.capitalPos?.let { cp ->
+                            val s = tf.toScreen(cp)
+                            country.capital?.let { MapTag(it, Night.ember, true, Modifier.anchorAt(s.copy(y = s.y - 18f), 0.5f, 1f)) {} }
+                        }
+                        region.kind == RegionKind.WORLD -> w.continents.values.forEach { ci ->
+                            MapTag(ci.name, Night.glow, false, Modifier.anchorAt(tf.toScreen(ci.center), 0.5f, 0.5f)) {
+                                selectRegion(Content.forContinent(ci.continent).id)
+                            }
+                        }
                     }
-                    if (zoomedIn) {
-                        // Terug naar Europa: knop linksboven op de kaart
-                        MapTag("← Europa", Night.glow, false, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 112.dp)) { select(RegionId.EUROPA) }
-                    } else {
-                        MapTag("Europa", Night.glow, true, Modifier.anchorAt(tf.toScreen(m.projection.project(50.2, 17.5)), 0.5f, 0.5f)) { select(RegionId.EUROPA) }
+                    // Terug-knop onder de kop
+                    val backLabel = when {
+                        country != null -> region.name
+                        region.kind == RegionKind.CONTINENT -> "Wereld"
+                        else -> null
+                    }
+                    if (backLabel != null) {
+                        MapTag("← $backLabel", Night.glow, false, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 112.dp)) {
+                            if (country != null) countryCode = null else selectRegion(RegionId.WERELD)
+                        }
                     }
                 }
-                // zachte overgang naar het paneel eronder
                 Box(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(40.dp)
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Night.sky.copy(alpha = 0.9f)))),
                 )
             }
-            // ---------- kop: zweeft over de kaart ----------
+            // ---------- kop ----------
             Row(
                 Modifier
                     .align(Alignment.TopStart)
@@ -178,29 +212,90 @@ fun HomeScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("Topo", style = MaterialTheme.typography.displayMedium, color = Night.text)
-                    Text("Tik een gebied aan op de kaart", style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+                    Text(
+                        when {
+                            countryCode != null -> "Tik een buurland aan, of ga terug"
+                            region.kind == RegionKind.WORLD -> "Tik een werelddeel aan"
+                            else -> "Tik een land aan op de kaart"
+                        },
+                        style = MaterialTheme.typography.bodyMedium, color = Night.muted,
+                    )
                 }
                 StreakChip(progress.streak)
             }
         }
 
-        // ---------- regio-keuze ----------
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            RegionChips(selected, ::select)
-            AnimatedContent(selected, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "region") { id ->
-                RegionCard(Content.region(id), progress) { onOpenRegion(id) }
+        // ---------- keuzes onder de kaart ----------
+        Column(Modifier.padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            RegionChips(regionId, onSelect = ::selectRegion)
+            val w = world
+            val panelKey = countryCode ?: regionId.name
+            AnimatedContent(panelKey, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "panel", modifier = Modifier.padding(horizontal = 16.dp)) { key ->
+                val c = w?.countries?.get(key)
+                if (c != null && w != null) {
+                    CountryCard(
+                        country = c, world = w,
+                        onClose = { countryCode = null },
+                        onNeighbour = { n -> w.countries[n]?.let(::selectCountry) },
+                        onLearn = onOpenRegion,
+                        onPick = { pickerOpen = true },
+                    )
+                } else {
+                    RegionCard(
+                        region = region, progress = progress,
+                        countryCount = w?.countriesIn(region.continent)?.size,
+                        onStart = { onOpenRegion(regionId) },
+                        onPick = { pickerOpen = true },
+                    )
+                }
             }
-            progress.lastPlayed?.let { last -> ContinueRow(last) { onPlay(last.region, last.topicId, last.level) } }
+            if (countryCode == null) progress.lastPlayed?.let { last ->
+                Box(Modifier.padding(horizontal = 16.dp)) { ContinueRow(last) { onPlay(last.region, last.topicId, last.level) } }
+            }
         }
+    }
+
+    val w = world
+    if (pickerOpen && w != null) {
+        CountryPicker(
+            title = if (region.kind == RegionKind.WORLD) "Kies een land" else "Kies een land in ${region.name}",
+            countries = w.countriesIn(region.continent),
+            onDismiss = { pickerOpen = false },
+            onPick = { c -> pickerOpen = false; selectCountry(c) },
+        )
     }
 }
 
+/** Kader rond een land met wat ruimte eromheen; kleine landen niet absurd ver inzoomen. */
+private fun padded(b: Rect): Rect {
+    val minSize = 22f
+    val w = maxOf(b.width, minSize)
+    val h = maxOf(b.height, minSize)
+    val pw = w * 0.75f
+    val ph = h * 0.75f
+    return Rect(b.center.x - pw, b.center.y - ph, b.center.x + pw, b.center.y + ph)
+}
+
+private val nl = Locale("nl", "NL")
+
+internal fun formatPopulation(n: Long): String = when {
+    n >= 1_000_000 -> NumberFormat.getNumberInstance(nl).apply { maximumFractionDigits = if (n >= 10_000_000) 0 else 1 }.format(n / 1_000_000.0) + " mln"
+    n >= 10_000 -> NumberFormat.getIntegerInstance(nl).format((n / 1000) * 1000)
+    else -> NumberFormat.getIntegerInstance(nl).format(n)
+}
+
+internal fun formatArea(a: Double?): String = when {
+    a == null -> "–"
+    a < 10 -> NumberFormat.getNumberInstance(nl).apply { maximumFractionDigits = 2 }.format(a) + " km²"
+    else -> NumberFormat.getIntegerInstance(nl).format(a.toLong()) + " km²"
+}
+
 @Composable
-private fun MapTag(text: String, color: Color, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+internal fun MapTag(text: String, color: Color, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(if (active) color.copy(alpha = 0.22f) else Night.surface.copy(alpha = 0.8f))
+            .background(if (active) color.copy(alpha = 0.22f) else Night.surface.copy(alpha = 0.85f))
             .border(1.dp, if (active) color else Night.outline, RoundedCornerShape(50))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
@@ -211,48 +306,145 @@ private fun MapTag(text: String, color: Color, active: Boolean, modifier: Modifi
 
 @Composable
 private fun RegionChips(selected: RegionId, onSelect: (RegionId) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Content.regions.forEach { r ->
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Content.mapRegions.forEach { r ->
             val active = r.id == selected
-            Row(
+            Box(
                 Modifier
                     .clip(RoundedCornerShape(50))
                     .background(if (active) Night.glow.copy(alpha = 0.16f) else Night.surface.copy(alpha = 0.85f))
                     .border(1.dp, if (active) Night.glow else Night.outline, RoundedCornerShape(50))
-                    .clickable(enabled = r.available) { onSelect(r.id) }
+                    .clickable { onSelect(r.id) }
                     .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                if (!r.available) Icon(Icons.Rounded.Lock, null, tint = Night.faint, modifier = Modifier.size(14.dp))
-                Text(
-                    r.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = when { active -> Night.text; r.available -> Night.muted; else -> Night.faint },
-                )
+                Text(r.name, style = MaterialTheme.typography.labelMedium, color = if (active) Night.text else Night.muted)
             }
         }
     }
 }
 
 @Composable
-private fun RegionCard(region: Region, progress: Progress, onStart: () -> Unit) {
+private fun RegionCard(region: Region, progress: Progress, countryCount: Int?, onStart: () -> Unit, onPick: () -> Unit) {
     NightCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Eyebrow(if (region.id == RegionId.NEDERLAND) "Thuisland" else "Werelddeel")
+                Eyebrow(if (region.kind == RegionKind.WORLD) "De hele wereld" else "Werelddeel")
                 Text(region.name, style = MaterialTheme.typography.headlineMedium, color = Night.text)
-                Text(region.tagline, style = MaterialTheme.typography.bodyMedium, color = Night.muted)
+                Text(
+                    listOfNotNull(countryCount?.let { "$it landen" }, region.tagline).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium, color = Night.muted,
+                )
             }
             ProgressRing(progress.fraction(region))
         }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "${region.topics.size} onderwerpen · 4 niveaus · ${progress.mastered(region)} van ${region.cellCount} vakjes gekend",
-            style = MaterialTheme.typography.bodySmall, color = Night.muted,
-        )
         Spacer(Modifier.height(14.dp))
-        GlowButton("Kies onderwerp", onStart, Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlowButton("Kies onderwerp", onStart, Modifier.weight(1f))
+            PickButton(onPick)
+        }
+    }
+}
+
+@Composable
+private fun PickButton(onClick: () -> Unit, label: String = "Land") {
+    OutlinedButton(
+        onClick = onClick,
+        border = BorderStroke(1.dp, Night.outline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.text),
+    ) {
+        Icon(Icons.Rounded.Search, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun CountryCard(
+    country: Country,
+    world: WorldMap,
+    onClose: () -> Unit,
+    onNeighbour: (String) -> Unit,
+    onLearn: (RegionId) -> Unit,
+    onPick: () -> Unit,
+) {
+    NightCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(country.flag, fontSize = 40.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Eyebrow(
+                    country.continents.mapNotNull { world.continents[it]?.name }.joinToString(" en ") +
+                        if (!country.sovereign) " · gebied" else "",
+                )
+                Text(country.name, style = MaterialTheme.typography.headlineMedium, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Sluiten", tint = Night.muted) }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Fact("Hoofdstad", country.capital ?: "–", Modifier.weight(1.3f))
+            Fact("Inwoners", formatPopulation(country.population), Modifier.weight(1f))
+            Fact("Oppervlakte", formatArea(country.areaKm2), Modifier.weight(1.1f))
+        }
+        val neighbours = country.neighbours.mapNotNull { world.countries[it] }
+        if (neighbours.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Eyebrow("Buurlanden")
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                neighbours.forEach { n ->
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Night.surfaceHigh)
+                            .border(1.dp, Night.outline, RoundedCornerShape(50))
+                            .clickable { onNeighbour(n.code) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(n.flag, fontSize = 14.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(n.name, style = MaterialTheme.typography.labelMedium, color = Night.text)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        val own = Content.forCountry(country.code)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (own != null) {
+                GlowButton("Leer ${country.name}", { onLearn(own.id) }, Modifier.weight(1f))
+            } else {
+                val home = country.continents.firstOrNull()?.let { Content.forContinent(it) }
+                Column(Modifier.weight(1f)) {
+                    Text("Onderwerpen voor dit land komen later.", style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                    if (home != null) {
+                        Text(
+                            "Oefen ${home.name} →",
+                            style = MaterialTheme.typography.labelLarge, color = Night.glow,
+                            modifier = Modifier.clickable { onLearn(home.id) }.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+            PickButton(onPick, "Ander land")
+        }
+    }
+}
+
+@Composable
+private fun Fact(label: String, value: String, modifier: Modifier) {
+    Column(
+        modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(Night.surfaceHigh.copy(alpha = 0.7f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Eyebrow(label)
+        Text(value, style = MaterialTheme.typography.titleSmall, color = Night.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

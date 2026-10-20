@@ -1,6 +1,5 @@
 package nl.topo.app.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -24,7 +23,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
@@ -43,7 +41,6 @@ class MapTransform(val scale: Float, val dx: Float, val dy: Float) {
     fun toMap(s: Offset) = Offset((s.x - dx) / scale, (s.y - dy) / scale)
 
     companion object {
-        /** Past het kader in de beschikbare ruimte (alles zichtbaar, gecentreerd). */
         /** Past het kader in de ruimte, zonder [padTop]/[padBottom] pixels aan boven- en onderkant. */
         fun fit(size: Size, viewport: Rect, padTop: Float = 0f, padBottom: Float = 0f): MapTransform {
             val h = (size.height - padTop - padBottom).coerceAtLeast(1f)
@@ -57,12 +54,18 @@ class MapTransform(val scale: Float, val dx: Float, val dy: Float) {
     }
 }
 
-private class MapPaths(val countries: Map<String, Path>, val background: List<Path>, val lakes: List<Path>, val rivers: List<Path>, val graticule: List<Path>)
+private class MapPaths(
+    val countries: Map<String, Path>,
+    val background: List<Path>,
+    val lakes: List<Path>,
+    val rivers: List<Path>,
+    val graticule: List<Path>,
+)
 
-private fun buildPaths(map: GeoMap): MapPaths {
-    val grat = buildList {
-        for (lon in -30..60 step 10) add(Path().apply { for (lat in 30..80) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lat == 30) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
-        for (lat in 30..80 step 10) add(Path().apply { for (lon in -40..70) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lon == -40) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
+private fun buildPaths(map: GeoMap, graticule: Boolean): MapPaths {
+    val grat = if (!graticule) emptyList() else buildList {
+        for (lon in -180..180 step 15) add(Path().apply { for (lat in -80..85) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lat == -80) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
+        for (lat in -75..75 step 15) add(Path().apply { for (lon in -180..180 step 2) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lon == -180) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
     }
     return MapPaths(
         countries = map.countries.mapValues { it.value.toPath() },
@@ -75,10 +78,13 @@ private fun buildPaths(map: GeoMap): MapPaths {
 
 /**
  * De kaart in Nachtkaart-stijl.
- * @param glow landen die oplichten (bijv. de gekozen regio)
- * @param glowColor kleur van de gloed
+ *
+ * De kaart zelf wordt alleen opnieuw getekend als het kader of de selectie verandert;
+ * de kloppende ring zit in een eigen laag, zodat de (grote) wereldkaart niet elk frame opnieuw hoeft.
+ *
+ * @param glow landen die oplichten
  * @param pulseAt kaartpunt waar een kloppende ring op staat
- * @param onTap tik op de kaart, in kaart-eenheden
+ * @param onTap tik op de kaart, in kaart-eenheden, met de huidige omrekening
  * @param overlay composables bovenop de kaart; gebruik [anchorAt] om ze op een kaartpunt te zetten
  */
 @Composable
@@ -86,20 +92,17 @@ fun NightMap(
     map: GeoMap,
     viewport: Rect,
     modifier: Modifier = Modifier,
-    /** Ruimte aan boven- en onderkant waar iets over de kaart zweeft; het kader past ertussen. */
     padTop: Dp = 0.dp,
     padBottom: Dp = 0.dp,
     glow: Set<String> = emptySet(),
     glowColor: Color = Night.glow,
     pulseAt: Offset? = null,
-    onTap: ((Offset) -> Unit)? = null,
+    graticule: Boolean = true,
+    onTap: ((Offset, MapTransform) -> Unit)? = null,
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
-    val paths = remember(map) { buildPaths(map) }
+    val paths = remember(map, graticule) { buildPaths(map, graticule) }
     val tap by rememberUpdatedState(onTap)
-    val anim = rememberInfiniteTransition(label = "map")
-    val breathe by anim.animateFloat(0.55f, 1f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breathe")
-    val pulse by anim.animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "pulse")
 
     BoxWithConstraints(modifier.clipToBounds()) {
         val size = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
@@ -110,40 +113,42 @@ fun NightMap(
         Canvas(
             Modifier
                 .fillMaxSize()
-                .then(if (onTap != null) Modifier.pointerInput(tf) { detectTapGestures { tap?.invoke(tf.toMap(it)) } } else Modifier),
+                .then(if (onTap != null) Modifier.pointerInput(tf) { detectTapGestures { tap?.invoke(tf.toMap(it), tf) } } else Modifier),
         ) {
             val s = tf.scale
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
                 paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
                 paths.background.forEach { drawPath(it, Night.landDecor) }
-                for ((id, p) in paths.countries) {
-                    drawPath(p, if (id in glow) Night.landHover else Night.land)
-                }
+                for ((id, p) in paths.countries) drawPath(p, if (id in glow) Night.landHover else Night.land)
                 paths.lakes.forEach { drawPath(it, Night.water) }
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
                 for ((id, p) in paths.countries) {
-                    if (id !in glow) drawPath(p, Night.landEdge, style = Stroke(0.8f / s, join = StrokeJoin.Round))
+                    if (id !in glow) drawPath(p, Night.landEdge, style = Stroke(0.7f / s, join = StrokeJoin.Round))
                 }
-                // Gloed: een paar brede, doorzichtige lijnen onder een scherpe rand.
+                // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {
                     val p = paths.countries[id] ?: continue
-                    glowPath(p, glowColor, s, breathe)
-                }
-                pulseAt?.let { c ->
-                    drawCircle(glowColor.copy(alpha = (1f - pulse) * 0.8f), radius = (6f + 22f * pulse) / s, center = c, style = Stroke(2f / s))
-                    drawCircle(glowColor, radius = 4f / s, center = c)
+                    drawPath(p, glowColor.copy(alpha = 0.08f))
+                    drawPath(p, glowColor.copy(alpha = 0.16f), style = Stroke(7f / s, join = StrokeJoin.Round))
+                    drawPath(p, glowColor.copy(alpha = 0.9f), style = Stroke(1.3f / s, join = StrokeJoin.Round))
                 }
             }
         }
+        if (pulseAt != null) PulseLayer(tf.toScreen(pulseAt), glowColor)
         Box(Modifier.fillMaxSize()) { overlay(tf) }
     }
 }
 
-private fun DrawScope.glowPath(p: Path, color: Color, s: Float, breathe: Float) {
-    drawPath(p, color.copy(alpha = 0.10f * breathe))
-    drawPath(p, color.copy(alpha = 0.07f * breathe), style = Stroke(12f / s, join = StrokeJoin.Round))
-    drawPath(p, color.copy(alpha = 0.14f * breathe), style = Stroke(6f / s, join = StrokeJoin.Round))
-    drawPath(p, color.copy(alpha = 0.9f), style = Stroke(1.4f / s, join = StrokeJoin.Round))
+@Composable
+private fun PulseLayer(center: Offset, color: Color) {
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "p",
+    )
+    Canvas(Modifier.fillMaxSize()) {
+        drawCircle(color.copy(alpha = (1f - pulse) * 0.8f), radius = 6.dp.toPx() + 16.dp.toPx() * pulse, center = center, style = Stroke(2.dp.toPx()))
+        drawCircle(Night.skyDeep, radius = 5.dp.toPx(), center = center)
+        drawCircle(color, radius = 3.5.dp.toPx(), center = center)
+    }
 }
 
 /** Plaatst een element op een schermpunt; ax/ay bepalen welk deel van het element op het punt ligt. */
