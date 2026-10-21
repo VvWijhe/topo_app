@@ -16,7 +16,7 @@ object Night {
 
     val land = Color(0xFF1B2A3E)
     val landHover = Color(0xFF233752)
-    val landEdge = Color(0xFF34506F)
+    val landEdge = Color(0xFF5A7DA3)
     val landDecor = Color(0xFF131F30)
     val water = Color(0xFF0C1626)
     val river = Color(0xFF2E5E86)

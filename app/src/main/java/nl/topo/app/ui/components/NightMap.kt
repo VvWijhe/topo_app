@@ -116,14 +116,17 @@ fun NightMap(
                 .then(if (onTap != null) Modifier.pointerInput(tf) { detectTapGestures { tap?.invoke(tf.toMap(it), tf) } } else Modifier),
         ) {
             val s = tf.scale
+            // Grenzen en kusten: ongeveer 1,2 dp, ongeacht de zoom
+            val borderPx = 1.2.dp.toPx()
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
                 paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
                 paths.background.forEach { drawPath(it, Night.landDecor) }
+                paths.background.forEach { drawPath(it, Night.landEdge.copy(alpha = 0.45f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
                 for ((id, p) in paths.countries) drawPath(p, if (id in glow) Night.landHover else Night.land)
                 paths.lakes.forEach { drawPath(it, Night.water) }
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
                 for ((id, p) in paths.countries) {
-                    if (id !in glow) drawPath(p, Night.landEdge, style = Stroke(0.7f / s, join = StrokeJoin.Round))
+                    if (id !in glow) drawPath(p, Night.landEdge, style = Stroke(borderPx / s, join = StrokeJoin.Round))
                 }
                 // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {
