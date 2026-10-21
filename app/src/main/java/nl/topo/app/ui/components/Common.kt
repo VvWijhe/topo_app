@@ -179,5 +179,5 @@ fun GlowButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
             disabledContainerColor = Night.surfaceHigh, disabledContentColor = Night.faint,
         ),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    ) { Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
 }

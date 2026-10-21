@@ -164,6 +164,12 @@ for a3, e in groups.items():
     }
 for c in countries.values():
     c['nb'] = [b for b in c['nb'] if b in countries]
+# Grenzen via overzeese gebieden die de brondata mist (beide kanten op)
+EXTRA_BORDERS = [('NLD', 'FRA'),   # Sint Maarten / Saint-Martin
+                 ('FRA', 'BRA'), ('FRA', 'SUR')]   # Frans-Guyana
+for a_, b_ in EXTRA_BORDERS:
+    for x, y in ((a_, b_), (b_, a_)):
+        if y not in countries[x]['nb']: countries[x]['nb'].append(y)
 
 bgd = []
 for a3, polys in bg:
