@@ -127,7 +127,7 @@ object Content {
             TopicGroup(
                 Txt("Map of Europe", "Kaart van Europa"), Txt("Cities, water and landscape", "Steden, water en landschap"),
                 listOf(
-                    topic("steden", "Cities", "Steden", "Big cities besides the capitals", "Grote steden buiten de hoofdsteden", Icons.Rounded.LocationCity),
+                    topic("steden", "Cities", "Steden", "Capitals and big cities", "Hoofdsteden en grote steden", Icons.Rounded.LocationCity),
                     topic("rivieren", "Rivers", "Rivieren", "From source to mouth", "Van bron tot monding", Icons.Rounded.Water),
                     topic("zeeen", "Seas and straits", "Zeeën en zeestraten", "The waters around Europe", "Het water rond Europa", Icons.Rounded.Waves),
                     topic("gebergten", "Mountains", "Gebergten", "From the Pyrenees to the Caucasus", "Van Pyreneeën tot Kaukasus", Icons.Rounded.Terrain),

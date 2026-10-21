@@ -408,7 +408,7 @@ private fun Feedback(game: QuizGame, q: Question) {
 @Composable
 private fun QuizMapView(map: QuizMap, q: Question, game: QuizGame, mapLabels: Boolean) {
     val lang = LocalLang.current
-    val reachPx = with(LocalDensity.current) { 26.dp.toPx() }
+    val reachPx = with(LocalDensity.current) { 32.dp.toPx() }
     var zoom by remember(map) { mutableFloatStateOf(1f) }
     var panX by remember(map) { mutableFloatStateOf(0f) }
     var panY by remember(map) { mutableFloatStateOf(0f) }
