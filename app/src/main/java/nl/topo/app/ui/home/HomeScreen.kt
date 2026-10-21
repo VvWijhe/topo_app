@@ -354,9 +354,10 @@ private fun RegionCard(region: Region, progress: Progress, countryCount: Int?, o
 }
 
 @Composable
-private fun PickButton(onClick: () -> Unit, label: String = tr("Country", "Land")) {
+private fun PickButton(onClick: () -> Unit, label: String = tr("Country", "Land"), modifier: Modifier = Modifier) {
     OutlinedButton(
         onClick = onClick,
+        modifier = modifier,
         border = BorderStroke(1.dp, Night.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.text),
     ) {
@@ -420,10 +421,14 @@ private fun CountryCard(
         }
         Spacer(Modifier.height(14.dp))
         val own = Content.forCountry(country.code)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (own != null) {
-                GlowButton(tr("Learn ${country.name(lang)}", "Leer ${country.name(lang)}"), { onLearn(own.id) }, Modifier.weight(1f))
-            } else {
+        if (own != null) {
+            // Eigen onderwerpen: grote knop over de hele breedte, 'ander land' eronder.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlowButton(tr("Learn ${country.name(lang)}", "Leer ${country.name(lang)}"), { onLearn(own.id) }, Modifier.fillMaxWidth())
+                PickButton(onPick, tr("Other country", "Ander land"), Modifier.fillMaxWidth())
+            }
+        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            run {
                 val home = country.continents.firstOrNull()?.let { Content.forContinent(it) }
                 Column(Modifier.weight(1f)) {
                     Text(tr("Topics for this country are coming later.", "Onderwerpen voor dit land komen later."), style = MaterialTheme.typography.bodySmall, color = Night.muted)
