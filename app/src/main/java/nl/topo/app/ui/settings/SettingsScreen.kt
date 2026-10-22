@@ -90,8 +90,8 @@ fun SettingsScreen() {
         }
 
         Section(tr("Playing", "Spelen")) {
-            SettingRow(Icons.Rounded.FormatListNumbered, tr("Round length", "Rondelengte"), tr("Questions per round", "Hoeveel vragen per ronde")) {
-                Segmented(listOf(tr("10 questions", "10 vragen"), tr("All", "Alles")), s.roundLength.ordinal) { i ->
+            SettingRow(Icons.Rounded.FormatListNumbered, tr("Round length", "Rondelengte"), tr("10 questions, or every item of the level", "10 vragen, of alles van het niveau")) {
+                Segmented(listOf(tr("10 questions", "10 vragen"), tr("Whole level", "Hele niveau")), s.roundLength.ordinal) { i ->
                     scope.launch { app.settings.setRoundLength(RoundLength.entries[i]) }
                 }
             }
