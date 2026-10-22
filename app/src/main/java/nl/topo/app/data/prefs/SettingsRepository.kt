@@ -16,6 +16,8 @@ data class Settings(
     val haptics: Boolean = true,
     val roundLength: RoundLength = RoundLength.TEN,
     val mapLabels: Boolean = false,
+    /** Kaart met hoog contrast, voor buiten. */
+    val highContrast: Boolean = false,
     /** Standaard Engels. */
     val language: Lang = Lang.EN,
 )
@@ -27,6 +29,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val ROUND = stringPreferencesKey("settings/round")
         val LABELS = booleanPreferencesKey("settings/labels")
         val LANGUAGE = stringPreferencesKey("settings/language")
+        val CONTRAST = booleanPreferencesKey("settings/contrast")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -35,6 +38,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             haptics = p[Keys.HAPTICS] ?: true,
             roundLength = p[Keys.ROUND]?.let { runCatching { RoundLength.valueOf(it) }.getOrNull() } ?: RoundLength.TEN,
             mapLabels = p[Keys.LABELS] ?: false,
+            highContrast = p[Keys.CONTRAST] ?: false,
             language = p[Keys.LANGUAGE]?.let { runCatching { Lang.valueOf(it) }.getOrNull() } ?: Lang.EN,
         )
     }
@@ -43,5 +47,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun setHaptics(on: Boolean) { store.edit { it[Keys.HAPTICS] = on } }
     suspend fun setRoundLength(length: RoundLength) { store.edit { it[Keys.ROUND] = length.name } }
     suspend fun setMapLabels(on: Boolean) { store.edit { it[Keys.LABELS] = on } }
+    suspend fun setHighContrast(on: Boolean) { store.edit { it[Keys.CONTRAST] = on } }
     suspend fun setLanguage(lang: Lang) { store.edit { it[Keys.LANGUAGE] = lang.name } }
 }

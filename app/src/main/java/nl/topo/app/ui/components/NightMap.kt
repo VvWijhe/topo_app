@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import nl.topo.app.data.geo.GeoMap
+import nl.topo.app.ui.theme.LocalHighContrast
 import nl.topo.app.ui.theme.Night
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -102,6 +103,12 @@ fun NightMap(
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
     val paths = remember(map, graticule) { buildPaths(map, graticule) }
+    val hi = LocalHighContrast.current
+    val landCol = if (hi) Night.landHi else Night.land
+    val hoverCol = if (hi) Night.landHoverHi else Night.landHover
+    val edgeCol = if (hi) Night.landEdgeHi else Night.landEdge
+    val decorCol = if (hi) Night.landDecorHi else Night.landDecor
+    val borderDp = if (hi) 2.dp else 1.5.dp
     val tap by rememberUpdatedState(onTap)
 
     BoxWithConstraints(modifier.clipToBounds()) {
@@ -117,16 +124,16 @@ fun NightMap(
         ) {
             val s = tf.scale
             // Grenzen en kusten: ongeveer 1,2 dp, ongeacht de zoom
-            val borderPx = 1.2.dp.toPx()
+            val borderPx = borderDp.toPx()
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
                 paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
-                paths.background.forEach { drawPath(it, Night.landDecor) }
-                paths.background.forEach { drawPath(it, Night.landEdge.copy(alpha = 0.45f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
-                for ((id, p) in paths.countries) drawPath(p, if (id in glow) Night.landHover else Night.land)
+                paths.background.forEach { drawPath(it, decorCol) }
+                paths.background.forEach { drawPath(it, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
+                for ((id, p) in paths.countries) drawPath(p, if (id in glow) hoverCol else landCol)
                 paths.lakes.forEach { drawPath(it, Night.water) }
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
                 for ((id, p) in paths.countries) {
-                    if (id !in glow) drawPath(p, Night.landEdge, style = Stroke(borderPx / s, join = StrokeJoin.Round))
+                    if (id !in glow) drawPath(p, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
                 }
                 // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {

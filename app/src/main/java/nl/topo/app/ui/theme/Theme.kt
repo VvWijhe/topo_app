@@ -35,6 +35,9 @@ private val TopoShapes = Shapes(
     large = RoundedCornerShape(24.dp),
 )
 
+/** Kaart met hoog contrast (instelling); wordt in MainActivity gezet. */
+val LocalHighContrast = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @Composable
 fun TopoTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = NightScheme, typography = TopoTypography, shapes = TopoShapes, content = content)
