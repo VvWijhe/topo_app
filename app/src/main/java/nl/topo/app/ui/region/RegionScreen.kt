@@ -39,6 +39,9 @@ import nl.topo.app.data.content.Region
 import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.content.Topic
 import nl.topo.app.data.content.TopicGroup
+import nl.topo.app.data.content.RegionKind
+import nl.topo.app.data.quiz.Levels4
+import androidx.compose.runtime.produceState
 import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.Progress
@@ -55,7 +58,12 @@ private val CellWidth = 50.dp
 @Composable
 fun RegionScreen(regionId: RegionId, onBack: () -> Unit, onPlay: (topicId: String, level: Int) -> Unit) {
     val region = Content.region(regionId)
-    val progress by LocalAppContainer.current.progress.progress.collectAsStateWithLifecycle(Progress())
+    val app = LocalAppContainer.current
+    val progress by app.progress.progress.collectAsStateWithLifecycle(Progress())
+    // Aantal landen in dit gebied, om per niveau te tonen hoeveel er meedoen.
+    val countryCount by produceState<Int?>(null, region) {
+        if (region.kind != RegionKind.COUNTRY) value = app.geo.world().countriesIn(region.continent).size
+    }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -63,7 +71,7 @@ fun RegionScreen(regionId: RegionId, onBack: () -> Unit, onPlay: (topicId: Strin
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { Header(region, progress, onBack) }
-        item { LevelLegend(region) }
+        item { LevelLegend(region, countryCount) }
         items(region.groups, key = { it.title.en }) { group -> TopicTable(region, group, progress, onPlay) }
         item {
             Text(
@@ -93,7 +101,7 @@ private fun Header(region: Region, progress: Progress, onBack: () -> Unit) {
 }
 
 @Composable
-private fun LevelLegend(region: Region) {
+private fun LevelLegend(region: Region, countryCount: Int?) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Levels.all.forEachIndexed { i, lv ->
             Column(
@@ -107,7 +115,11 @@ private fun LevelLegend(region: Region) {
             ) {
                 StarsText(lv.stars, size = 11)
                 Text(lv.title.text, style = MaterialTheme.typography.labelMedium, color = Night.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(region.levelScope[i].text, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
+                val scope = countryCount?.let { n ->
+                    val k = Levels4.size(n, lv.stars)
+                    if (k == n) tr("all $n countries", "alle $n landen") else tr("$k of $n countries", "$k van $n landen")
+                } ?: region.levelScope[i].text
+                Text(scope, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
                 Text(lv.how.text, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 2)
             }
         }
