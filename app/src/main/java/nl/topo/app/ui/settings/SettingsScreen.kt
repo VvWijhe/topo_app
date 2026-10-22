@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
@@ -93,6 +94,10 @@ fun SettingsScreen() {
                 Segmented(listOf(tr("10 questions", "10 vragen"), tr("All", "Alles")), s.roundLength.ordinal) { i ->
                     scope.launch { app.settings.setRoundLength(RoundLength.entries[i]) }
                 }
+            }
+            Divider()
+            SwitchRow(Icons.Rounded.Contrast, tr("High-contrast map", "Hoog contrast kaart"), tr("Brighter borders, easier to see outdoors", "Helderdere grenzen, beter te zien in daglicht"), s.highContrast) {
+                scope.launch { app.settings.setHighContrast(it) }
             }
             Divider()
             SwitchRow(Icons.Rounded.TextFields, tr("Names on the map", "Namen op de kaart"), tr("Handy while you're learning", "Handig om eerst te leren"), s.mapLabels) {

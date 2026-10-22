@@ -14,13 +14,19 @@ object Night {
     val outline = Color(0xFF243753)
     val outlineSoft = Color(0xFF1A2A41)
 
-    val land = Color(0xFF1B2A3E)
-    val landHover = Color(0xFF233752)
-    val landEdge = Color(0xFF5A7DA3)
-    val landDecor = Color(0xFF131F30)
+    val land = Color(0xFF213350)
+    val landHover = Color(0xFF2A4062)
+    val landEdge = Color(0xFF86A9D0)
+    val landDecor = Color(0xFF16233A)
     val water = Color(0xFF0C1626)
     val river = Color(0xFF2E5E86)
     val graticule = Color(0xFF14243A)
+
+    // Hoog contrast (buiten, in daglicht): lichter land en bijna witte grenzen.
+    val landHi = Color(0xFF30496E)
+    val landHoverHi = Color(0xFF3A5884)
+    val landEdgeHi = Color(0xFFE2ECF7)
+    val landDecorHi = Color(0xFF1F2F48)
 
     val text = Color(0xFFE8F0F7)
     val muted = Color(0xFF8BA0B5)

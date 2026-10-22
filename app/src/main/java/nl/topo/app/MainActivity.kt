@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.ui.theme.LocalHighContrast
 import nl.topo.app.data.prefs.Settings
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import nl.topo.app.ui.LocalAppContainer
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as TopoApplication).container
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle(Settings())
-            CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language) {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast) {
                 TopoTheme { TopoApp() }
             }
         }
