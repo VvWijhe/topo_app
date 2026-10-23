@@ -360,10 +360,15 @@ private fun ChallengeMap(w: WorldMap, c: Challenge, found: List<String>, hinted:
             } }
             c.line?.let { l ->
                 val at = when (l) {
-                    is GlobeLine.Latitude -> Offset(tf.toScreen(Offset(viewport.left, 0f)).x + 12f, tf.toScreen(w.geo.projection.project(l.lat, 0.0)).y)
+                    // rechts op de lijn, uit de buurt van de landnamen
+                    is GlobeLine.Latitude -> Offset(tf.toScreen(Offset(viewport.right, 0f)).x - 12f, tf.toScreen(w.geo.projection.project(l.lat, 0.0)).y)
                     is GlobeLine.Meridian -> tf.toScreen(w.geo.projection.project(0.0, l.lon)).let { Offset(it.x + 6f, tf.toScreen(Offset(0f, viewport.top)).y + 40f) }
                 }
-                Text(l.name.text, style = MaterialTheme.typography.labelSmall, color = Night.gold, modifier = Modifier.anchorAt(at, 0f, 1.2f))
+                Text(
+                    l.name.text, style = MaterialTheme.typography.labelSmall, color = Night.gold,
+                    modifier = Modifier.anchorAt(at, if (l is GlobeLine.Latitude) 1f else 0f, 1.3f)
+                        .clip(RoundedCornerShape(4.dp)).background(Night.skyDeep.copy(alpha = 0.75f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
             }
         }
         if (zoom > 1.05f || panX != 0f || panY != 0f) {
