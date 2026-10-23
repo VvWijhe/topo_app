@@ -50,6 +50,7 @@ fun awardLabel(a: Award, lang: Lang): String = when (a.kind) {
     Award.Kind.CHALLENGE_FOUND -> lang.t("${a.n} countries found", "${a.n} landen gevonden")
     Award.Kind.CHALLENGE_DONE -> lang.t("Challenge complete", "Uitdaging voltooid")
     Award.Kind.HINTS -> lang.t("${a.n} hints used", "${a.n} hints gebruikt")
+    Award.Kind.MISTAKES -> lang.t("${a.n} wrong answers", "${a.n} foute antwoorden")
     Award.Kind.DAILY -> if (a.n <= 1) lang.t("First round today", "Eerste ronde vandaag")
         else lang.t("Daily bonus · day ${a.n} of your streak", "Dagbonus · dag ${a.n} van je reeks")
 }
