@@ -41,6 +41,7 @@ import nl.topo.app.data.content.RegionId
 import nl.topo.app.data.content.RegionKind
 import nl.topo.app.data.geo.WorldMap
 import nl.topo.app.data.prefs.RoundLength
+import nl.topo.app.data.prefs.RoundOutcome
 import nl.topo.app.data.i18n.LocalLang
 import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
@@ -69,7 +70,7 @@ private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: 
     val world by produceState<WorldMap?>(null) { if (needsWorld) value = app.geo.world() }
     val nl by produceState<NederlandMap?>(null) { if (!needsWorld) value = app.geo.nederland() }
     var level by rememberSaveable { mutableIntStateOf(startLevel) }
-    var record by remember { mutableStateOf<Boolean?>(null) }
+    var outcome by remember { mutableStateOf<RoundOutcome?>(null) }
     if ((needsWorld && world == null) || (!needsWorld && nl == null)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
         return
@@ -83,7 +84,10 @@ private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: 
     val game = remember(setup, roundLength) { QuizGame(setup, roundLength) }
     // Uitslag opslaan zodra de ronde klaar is.
     LaunchedEffect(game, game.finished) {
-        record = if (game.finished) app.progress.recordRound(region.id, topicId, level, game.percent) else null
+        outcome = if (game.finished) app.progress.recordRound(
+            region.id, topicId, level, game.percent,
+            correctFirstTry = game.correctFirstTry, wholeLevel = game.firstCount >= game.poolSize,
+        ) else null
     }
     QuizPlayScreen(
         setup = setup,
@@ -92,7 +96,7 @@ private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: 
         level = level,
         haptics = settings.haptics,
         mapLabels = settings.mapLabels,
-        record = record,
+        outcome = outcome,
         onBack = onBack,
         onNextLevel = if (level < 4) ({ level += 1 }) else null,
     )
@@ -145,7 +149,7 @@ private fun PlaceholderQuiz(regionId: RegionId, topicId: String, level: Int, onB
                 listOf(45, 75, 100).forEach { pct ->
                     OutlinedButton(onClick = {
                         scope.launch {
-                            val record = app.progress.recordRound(regionId, topicId, level, pct)
+                            val record = app.progress.recordRound(regionId, topicId, level, pct).record
                             message = if (record) lang.t("$pct% saved — new record", "$pct% opgeslagen — nieuw record") else lang.t("$pct% played; your record stands", "$pct% gespeeld; je record blijft staan")
                         }
                     }) { Text("$pct%", color = Night.text) }
