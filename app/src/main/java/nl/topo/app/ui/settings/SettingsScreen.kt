@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Contrast
+import androidx.compose.material.icons.rounded.Spellcheck
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
@@ -98,6 +99,10 @@ fun SettingsScreen() {
             Divider()
             SwitchRow(Icons.Rounded.Contrast, tr("High-contrast map", "Hoog contrast kaart"), tr("Brighter borders, easier to see outdoors", "Helderdere grenzen, beter te zien in daglicht"), s.highContrast) {
                 scope.launch { app.settings.setHighContrast(it) }
+            }
+            Divider()
+            SwitchRow(Icons.Rounded.Spellcheck, tr("Strict spelling", "Strikte spelling"), tr("Typed answers must be spelled exactly, accents included", "Getypte antwoorden moeten precies goed, met accenten"), s.strictTyping) {
+                scope.launch { app.settings.setStrictTyping(it) }
             }
             Divider()
             SwitchRow(Icons.Rounded.TextFields, tr("Names on the map", "Namen op de kaart"), tr("Handy while you're learning", "Handig om eerst te leren"), s.mapLabels) {
