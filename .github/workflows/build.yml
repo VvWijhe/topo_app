@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # volledige geschiedenis: het versienummer telt de commits
 
       - uses: actions/setup-java@v5
         with:
@@ -28,6 +30,7 @@ jobs:
           chmod +x gradlew
           set -o pipefail
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
+          echo "VERSION=$(./gradlew -q --no-daemon :app:printVersionName | tail -1)" >> "$GITHUB_ENV"
         continue-on-error: false
 
       - name: Bouwfouten tonen
@@ -53,9 +56,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: laatste
-          name: Topo (laatste versie)
+          name: Topo ${{ env.VERSION }} (laatste versie)
           body: |
-            Automatisch gebouwd uit commit ${{ github.sha }}.
+            Versie ${{ env.VERSION }}, automatisch gebouwd uit commit ${{ github.sha }}.
             Download **app-debug.apk** hieronder en open het bestand op je telefoon.
           prerelease: true
           make_latest: false

@@ -155,21 +155,28 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
             finished = p[intPreferencesKey(dailyKey(day, difficulty, "points"))] != null,
             points = p[intPreferencesKey(dailyKey(day, difficulty, "points"))] ?: 0,
             gaveUp = p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] == 1,
+            mistakes = p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] ?: 0,
+            lost = p[intPreferencesKey(dailyKey(day, difficulty, "lost"))] == 1,
         )
     }
 
-    suspend fun saveDaily(day: Long, difficulty: String, found: List<String>, hints: Int) {
+    suspend fun saveDaily(day: Long, difficulty: String, found: List<String>, hints: Int, mistakes: Int = 0) {
         store.edit { p ->
             p[stringPreferencesKey(dailyKey(day, difficulty, "found"))] = found.joinToString(",")
             p[intPreferencesKey(dailyKey(day, difficulty, "hints"))] = hints
+            p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] = mistakes
         }
     }
 
     /**
      * Rond de uitdaging af en deel punten uit: per gevonden land (makkelijk 10, moeilijk 25),
-     * een bonus als alles gevonden is (50 / 200), en 5 punten aftrek per hint.
+     * een bonus als alles gevonden is (50 / 200), 5 punten aftrek per hint en 5 / 10 per fout.
+     * [lost]: te veel fouten; dan geen bonus.
      */
-    suspend fun finishDaily(day: Long, difficulty: String, hard: Boolean, found: Int, total: Int, hints: Int, gaveUp: Boolean): RoundOutcome {
+    suspend fun finishDaily(
+        day: Long, difficulty: String, hard: Boolean, found: Int, total: Int, hints: Int, gaveUp: Boolean,
+        mistakes: Int = 0, lost: Boolean = false,
+    ): RoundOutcome {
         var outcome = RoundOutcome(false, emptyList(), 0, 0, emptyList())
         store.edit { p ->
             val pointsKey = intPreferencesKey(dailyKey(day, difficulty, "points"))
@@ -178,9 +185,12 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
             if (found > 0) awards += Award(Award.Kind.CHALLENGE_FOUND, found * if (hard) 25 else 10, found)
             if (found == total && total > 0) awards += Award(Award.Kind.CHALLENGE_DONE, if (hard) 200 else 50)
             if (hints > 0) awards += Award(Award.Kind.HINTS, -5 * hints, hints)
+            if (mistakes > 0) awards += Award(Award.Kind.MISTAKES, -mistakes * DailyRules.penalty(hard), mistakes)
             val (before, after) = applyDayAndPoints(p, awards)
             p[pointsKey] = after - before
             if (gaveUp) p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] = 1
+            if (lost) p[intPreferencesKey(dailyKey(day, difficulty, "lost"))] = 1
+            p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] = mistakes
             outcome = RoundOutcome(false, awards, before, after, emptyList())
         }
         return outcome
@@ -205,7 +215,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
 
 /** Eén bonus na een ronde. [n]: aantal antwoorden, niveau of dagen, afhankelijk van [kind]. */
 data class Award(val kind: Kind, val points: Int, val n: Int = 0) {
-    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY, CHALLENGE_FOUND, CHALLENGE_DONE, HINTS }
+    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY, CHALLENGE_FOUND, CHALLENGE_DONE, HINTS, MISTAKES }
 }
 
 data class RoundOutcome(
@@ -255,4 +265,14 @@ data class DailyState(
     val finished: Boolean = false,
     val points: Int = 0,
     val gaveUp: Boolean = false,
+    val mistakes: Int = 0,
+    val lost: Boolean = false,
 )
+
+/** Regels voor fouten in de dagelijkse uitdaging. */
+object DailyRules {
+    /** Zoveel fouten mag je maken; bij de volgende is het voorbij. */
+    fun maxMistakes(hard: Boolean) = if (hard) 3 else 5
+    /** Puntenaftrek per fout. */
+    fun penalty(hard: Boolean) = if (hard) 10 else 5
+}

@@ -84,9 +84,9 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
         val easy = remember(w, day, lang) { DailyChallenges.forDay(w, day, Difficulty.EASY, lang) }
         val hard = remember(w, day, lang) { DailyChallenges.forDay(w, day, Difficulty.HARD, lang) }
         ChallengeCard(easy, easyState, Night.glow, Icons.Rounded.Lightbulb,
-            tr("Easy", "Makkelijk"), tr("Hints allowed · 10 points per country", "Hints mogelijk · 10 punten per land")) { onPlay(Difficulty.EASY) }
+            tr("Easy", "Makkelijk"), tr("5 lives · hints · 10 points per country", "5 levens · hints · 10 punten per land")) { onPlay(Difficulty.EASY) }
         ChallengeCard(hard, hardState, Night.ember, Icons.Rounded.Whatshot,
-            tr("Hard", "Moeilijk"), tr("No hints · 25 points per country", "Geen hints · 25 punten per land")) { onPlay(Difficulty.HARD) }
+            tr("Hard", "Moeilijk"), tr("3 lives · no hints · 25 points per country", "3 levens · geen hints · 25 punten per land")) { onPlay(Difficulty.HARD) }
         Text(
             tr(
                 "Everyone gets the same challenges today. The map shows no borders: countries appear as you name them.",
@@ -135,6 +135,7 @@ private fun ChallengeCard(c: Challenge, s: DailyState, color: Color, icon: andro
         Eyebrow(
             when {
                 s.finished && found == total -> tr("Completed · all $total found", "Voltooid · alle $total gevonden")
+                s.lost -> tr("Out of lives · $found of $total found", "Geen levens meer · $found van $total gevonden")
                 s.finished -> tr("Finished · $found of $total found", "Afgerond · $found van $total gevonden")
                 found > 0 -> tr("$found of $total found", "$found van $total gevonden")
                 else -> tr("Not started", "Nog niet begonnen")

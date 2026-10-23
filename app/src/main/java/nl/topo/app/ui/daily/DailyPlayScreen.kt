@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CenterFocusStrong
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,6 +78,7 @@ import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.RoundOutcome
 import nl.topo.app.data.prefs.Settings
+import nl.topo.app.data.prefs.DailyRules
 import nl.topo.app.data.quiz.Matching
 import nl.topo.app.data.quiz.Names
 import nl.topo.app.ui.LocalAppContainer
@@ -90,7 +94,7 @@ import nl.topo.app.ui.theme.Night
 private sealed interface Said {
     data class Found(val c: Country) : Said
     data class Already(val c: Country) : Said
-    data class NotIn(val c: Country) : Said
+    data class NotIn(val c: Country, val penalty: Int) : Said
     data class Unknown(val text: String) : Said
 }
 
@@ -132,17 +136,20 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
     var hinted by remember { mutableStateOf<String?>(null) }
     var finished by remember { mutableStateOf(stored.finished) }
     var gaveUp by remember { mutableStateOf(stored.gaveUp) }
+    var mistakes by remember { mutableIntStateOf(stored.mistakes) }
+    var lost by remember { mutableStateOf(stored.lost) }
+    val maxMistakes = DailyRules.maxMistakes(hard)
     var outcome by remember { mutableStateOf<RoundOutcome?>(null) }
     var said by remember { mutableStateOf<Said?>(null) }
     var text by remember { mutableStateOf("") }
     val total = c.targets.size
 
-    fun finish(giveUp: Boolean) {
+    fun finish(giveUp: Boolean, outOfLives: Boolean = false) {
         if (finished) return
-        finished = true; gaveUp = giveUp
+        finished = true; gaveUp = giveUp; lost = outOfLives
         scope.launch {
-            app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints)
-            outcome = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp)
+            app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes)
+            outcome = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp, mistakes, outOfLives)
         }
     }
 
@@ -156,13 +163,24 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                 found.add(target.code)
                 if (hinted == target.code) hinted = null
                 if (settings.haptics) feel.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints) }
+                scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
                 if (found.size == total) finish(false)
                 Said.Found(target)
             }
             else -> {
                 if (settings.haptics) feel.performHapticFeedback(HapticFeedbackType.LongPress)
-                w.all.firstOrNull { ok(it) }?.let { other -> if (other.code in found) Said.Already(other) else Said.NotIn(other) } ?: Said.Unknown(t)
+                val other = w.all.firstOrNull { ok(it) }
+                when {
+                    other == null -> Said.Unknown(t) // onbekende naam (vaak een tikfout): geen straf
+                    other.code in found -> Said.Already(other)
+                    else -> {
+                        // een echt land dat er niet bij hoort: fout, kost punten en een leven
+                        mistakes++
+                        scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
+                        if (mistakes >= maxMistakes) finish(giveUp = false, outOfLives = true)
+                        Said.NotIn(other, DailyRules.penalty(hard))
+                    }
+                }
             }
         }
         text = ""
@@ -173,7 +191,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
         if (left.isEmpty() || hard || finished) return
         hinted = left.random()
         hints++
-        scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints) }
+        scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
@@ -185,9 +203,16 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                     color = if (hard) Night.ember else Night.glow)
             }
             Text(c.title.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("${found.size} of $total found", "${found.size} van $total gevonden"), style = MaterialTheme.typography.labelMedium, color = Night.muted, modifier = Modifier.weight(1f))
-                if (hints > 0) Text(tr("$hints hints", "$hints hints"), style = MaterialTheme.typography.labelMedium, color = Night.faint)
+                if (hints > 0) { Text(tr("$hints hints", "$hints hints"), style = MaterialTheme.typography.labelMedium, color = Night.faint); Spacer(Modifier.width(10.dp)) }
+                // levens: elke fout kost er één
+                repeat(maxMistakes) { i ->
+                    Icon(
+                        if (i < maxMistakes - mistakes) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null,
+                        tint = if (i < maxMistakes - mistakes) Night.danger else Night.faint, modifier = Modifier.size(18.dp),
+                    )
+                }
             }
             ProgressBar(found.size.toFloat() / total.coerceAtLeast(1), color = if (hard) Night.ember else Night.glow)
         }
@@ -243,6 +268,8 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                 Text(
                     when {
                         allFound -> tr("All $total found. Well done!", "Alle $total gevonden. Goed gedaan!")
+                        lost -> tr("Out of lives: $maxMistakes wrong answers. You found ${found.size} of $total; the missing ones are in red.",
+                            "Geen levens meer: $maxMistakes foute antwoorden. Je vond er ${found.size} van $total; de ontbrekende staan in het rood.")
                         else -> tr("You found ${found.size} of $total. The missing ones are shown in red.", "Je vond er ${found.size} van $total. De ontbrekende staan in het rood.")
                     },
                     style = MaterialTheme.typography.titleSmall, color = if (allFound) Night.glow else Night.text,
@@ -263,8 +290,8 @@ private fun Feedback(s: Said) {
     val (msg, col) = when (s) {
         is Said.Found -> tr("✓ ${s.c.name(lang)}", "✓ ${s.c.name(lang)}") to Night.glow
         is Said.Already -> tr("You already have ${s.c.name(lang)}.", "${s.c.name(lang)} heb je al.") to Night.muted
-        is Said.NotIn -> tr("${s.c.name(lang)} isn't part of this one.", "${s.c.name(lang)} hoort er niet bij.") to Night.danger
-        is Said.Unknown -> tr("“${s.text}” isn't a country we know.", "“${s.text}” kennen we niet als land.") to Night.danger
+        is Said.NotIn -> tr("${s.c.name(lang)} isn't part of this one. −${s.penalty} points", "${s.c.name(lang)} hoort er niet bij. −${s.penalty} punten") to Night.danger
+        is Said.Unknown -> tr("“${s.text}” isn't a country we know — check the spelling (no penalty).", "“${s.text}” kennen we niet als land — check de spelling (geen straf).") to Night.muted
     }
     Text(msg, style = MaterialTheme.typography.labelMedium, color = col)
 }
