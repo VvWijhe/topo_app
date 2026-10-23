@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -87,6 +88,8 @@ import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.components.StreakChip
 import nl.topo.app.ui.components.PointsChip
 import nl.topo.app.ui.components.anchorAt
+import nl.topo.app.ui.components.mapZoomGestures
+import nl.topo.app.ui.components.rememberMapZoom
 import nl.topo.app.ui.theme.Night
 import java.text.NumberFormat
 
@@ -156,10 +159,12 @@ fun HomeScreen(
                         else -> emptySet()
                     }
                 }
+                // Knijp-zoom bovenop het gekozen gebied; terug naar normaal bij een andere keuze.
+                val mz = rememberMapZoom(regionId, countryCode)
                 NightMap(
                     map = w.geo,
-                    viewport = viewport,
-                    modifier = Modifier.fillMaxSize(),
+                    viewport = mz.viewport(viewport),
+                    modifier = Modifier.fillMaxSize().mapZoomGestures(mz) { viewport },
                     padTop = 112.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     padBottom = 16.dp,
                     glow = glow,
@@ -177,6 +182,7 @@ fun HomeScreen(
                         }
                     },
                 ) { tf ->
+                    androidx.compose.runtime.SideEffect { mz.scale = tf.scale }
                     when {
                         country != null -> country.capitalPos?.let { cp ->
                             val s = tf.toScreen(cp)
@@ -199,6 +205,12 @@ fun HomeScreen(
                             if (country != null) countryCode = null else selectRegion(RegionId.WERELD)
                         }
                     }
+                }
+                if (mz.isZoomed) {
+                    IconButton(
+                        onClick = { mz.reset() },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(12.dp)).background(Night.surface.copy(alpha = 0.9f)),
+                    ) { Icon(Icons.Rounded.CenterFocusStrong, tr("Reset view", "Hele kaart"), tint = Night.text) }
                 }
                 Box(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(40.dp)

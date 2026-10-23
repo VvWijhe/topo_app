@@ -89,6 +89,8 @@ import nl.topo.app.ui.components.NightMap
 import nl.topo.app.ui.components.PointsPanel
 import nl.topo.app.ui.components.ProgressBar
 import nl.topo.app.ui.components.anchorAt
+import nl.topo.app.ui.components.mapZoomGestures
+import nl.topo.app.ui.components.rememberMapZoom
 import nl.topo.app.ui.theme.Night
 
 private sealed interface Said {
@@ -321,28 +323,17 @@ private fun FoundRow(w: WorldMap, c: Challenge, found: List<String>, finished: B
 @Composable
 private fun ChallengeMap(w: WorldMap, c: Challenge, found: List<String>, hinted: String?, finished: Boolean) {
     val lang = LocalLang.current
-    var zoom by remember { mutableFloatStateOf(1f) }
-    var panX by remember { mutableFloatStateOf(0f) }
-    var panY by remember { mutableFloatStateOf(0f) }
-    var scaleNow by remember { mutableFloatStateOf(1f) }
+    val mz = rememberMapZoom(c)
     val base = c.viewport
-    val vw = base.width / zoom; val vh = base.height / zoom
-    val cx = base.center.x + panX; val cy = base.center.y + panY
-    val viewport = Rect(cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2)
+    val viewport = mz.viewport(base)
     val missing = if (finished) c.targets.filter { it !in found } else emptyList()
     val shown = buildSet { c.subject?.let { add(it) }; addAll(found); addAll(missing); hinted?.let { add(it) } }
 
     Box(
-        Modifier.fillMaxSize().pointerInput(c) {
-            detectTransformGestures { _, pan, z, _ ->
-                zoom = (zoom * z).coerceIn(1f, 12f)
-                panX = (panX - pan.x / scaleNow).coerceIn(-base.width / 2, base.width / 2)
-                panY = (panY - pan.y / scaleNow).coerceIn(-base.height / 2, base.height / 2)
-            }
-        },
+        Modifier.fillMaxSize().mapZoomGestures(mz) { base },
     ) {
         NightMap(map = w.geo, viewport = viewport, modifier = Modifier.fillMaxSize(), borders = shown) { tf ->
-            androidx.compose.runtime.SideEffect { scaleNow = tf.scale }
+            androidx.compose.runtime.SideEffect { mz.scale = tf.scale }
             Canvas(Modifier.fillMaxSize()) {
                 val s = tf.scale
                 withTransform({ translate(tf.dx, tf.dy); scale(s, s, Offset.Zero) }) {
@@ -398,9 +389,9 @@ private fun ChallengeMap(w: WorldMap, c: Challenge, found: List<String>, hinted:
                 )
             }
         }
-        if (zoom > 1.05f || panX != 0f || panY != 0f) {
+        if (mz.isZoomed) {
             IconButton(
-                onClick = { zoom = 1f; panX = 0f; panY = 0f },
+                onClick = { mz.reset() },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(12.dp)).background(Night.surface.copy(alpha = 0.9f)),
             ) { Icon(Icons.Rounded.CenterFocusStrong, tr("Reset view", "Hele kaart"), tint = Night.text) }
         }
