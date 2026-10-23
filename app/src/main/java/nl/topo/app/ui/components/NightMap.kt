@@ -138,6 +138,18 @@ fun NightMap(
                 for ((id, p) in paths.countries) {
                     if (id !in glow && (borders == null || id in borders)) drawPath(p, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
                 }
+                // Landen die te klein zijn om te zien (eilandstaten) krijgen een stip.
+                val minPx = 5.dp.toPx()
+                for ((id, shape) in map.countries) {
+                    if (borders != null && id !in borders) continue // in de uitdaging niets verklappen
+                    val b = shape.bounds
+                    if (maxOf(b.width, b.height) * s < minPx) {
+                        val c = map.labels[id] ?: b.center
+                        val col = if (id in glow) glowColor else edgeCol
+                        drawCircle(Night.skyDeep, radius = 4.dp.toPx() / s, center = c)
+                        drawCircle(col, radius = 2.6.dp.toPx() / s, center = c)
+                    }
+                }
                 // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {
                     val p = paths.countries[id] ?: continue

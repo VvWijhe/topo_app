@@ -89,10 +89,20 @@ for f in ne:
     e['polys'] += polys
     if a3 == tgt: e['props'] = p
 
+# Detailkaart (1:10m) voor kleine (eiland)staten, zodat je bij inzoomen alle eilandjes ziet
+ne10 = {}
+for f in json.load(open('data/ne10_countries.geojson'))['features']:
+    g = f['geometry']
+    if not g: continue
+    ne10[f['properties']['ADM0_A3']] = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
+
 countries = {}
 for a3, e in groups.items():
     p = e['props']; code = OUT_CODE.get(a3, a3); m = mc.get(MC_CODE.get(a3, a3))
     polys = e['polys']
+    detail = False
+    if a3 in ne10 and sum(area([pr(x, y) for x, y in pl[0]]) for pl in polys) < 5:
+        polys = ne10[a3]; detail = True
     # antimeridiaan: houd de delen aan de kant van het hoofdgebied
     main = max(polys, key=lambda pl: area(pl[0]))
     mlon = 170 if a3 == 'KIR' else lonc(main[0])
@@ -107,10 +117,11 @@ for a3, e in groups.items():
         A = area(rings[0])
         parts.append((A, rings))
     Amax = max(a for a, _ in parts)
+    small_country = sum(a for a, _ in parts) < 5   # eilandstaten: alle eilandjes houden
     for A, rings in parts:
-        if A < 0.02 and A < Amax * 0.5: continue   # piepkleine eilandjes weglaten
+        if not small_country and A < 0.02 and A < Amax * 0.5: continue   # piepkleine eilandjes weglaten bij grote landen
         for r in rings:
-            s = simp(r, TOL)
+            s = simp(r, TOL * 0.25 if detail else TOL)
             if len(s) >= 3: out.append(s)
     # kader van het 'hoofdgebied': grote delen + delen dichtbij het grootste deel
     mr = max(parts, key=lambda t: t[0])[1][0]

@@ -101,6 +101,8 @@ import nl.topo.app.ui.components.NightMap
 import nl.topo.app.ui.components.ProgressBar
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.components.anchorAt
+import nl.topo.app.ui.components.mapZoomGestures
+import nl.topo.app.ui.components.rememberMapZoom
 import nl.topo.app.ui.theme.Night
 
 @Composable
@@ -415,32 +417,16 @@ private fun Feedback(game: QuizGame, q: Question) {
 private fun QuizMapView(map: QuizMap, q: Question, game: QuizGame, mapLabels: Boolean) {
     val lang = LocalLang.current
     val reachPx = with(LocalDensity.current) { 32.dp.toPx() }
-    var zoom by remember(map) { mutableFloatStateOf(1f) }
-    var panX by remember(map) { mutableFloatStateOf(0f) }
-    var panY by remember(map) { mutableFloatStateOf(0f) }
-    var scaleNow by remember { mutableFloatStateOf(1f) }
+    val mz = rememberMapZoom(map)
     var hint by remember(q) { mutableStateOf(false) }
     val base = map.viewport
-    val vw = base.width / zoom
-    val vh = base.height / zoom
-    val cx = base.center.x + panX
-    val cy = base.center.y + panY
-    val viewport = Rect(cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2)
+    val viewport = mz.viewport(base)
     val g = game.given
 
     Box(
         Modifier
             .fillMaxSize()
-            .pointerInput(map) {
-                detectTransformGestures { _, pan, z, _ ->
-                    zoom = (zoom * z).coerceIn(1f, 12f)
-                    panX -= pan.x / scaleNow
-                    panY -= pan.y / scaleNow
-                    // niet te ver van de kaart af schuiven
-                    panX = panX.coerceIn(-base.width / 2, base.width / 2)
-                    panY = panY.coerceIn(-base.height / 2, base.height / 2)
-                }
-            },
+            .mapZoomGestures(mz) { base },
     ) {
         NightMap(
             map = map.geo,
@@ -454,7 +440,7 @@ private fun QuizMapView(map: QuizMap, q: Question, game: QuizGame, mapLabels: Bo
                 if (hit == null) hint = true else game.tap(hit.id)
             },
         ) { tf ->
-            SideEffect { scaleNow = tf.scale }
+            SideEffect { mz.scale = tf.scale }
             val focusId = q.focus
             val showFocus = q.mode == Mode.TYPE || g != null
             val rightIds = if (g != null) q.correct else emptySet()
@@ -524,9 +510,9 @@ private fun QuizMapView(map: QuizMap, q: Question, game: QuizGame, mapLabels: Bo
             }
         }
         // terug naar het hele kader
-        if (zoom > 1.05f || panX != 0f || panY != 0f) {
+        if (mz.isZoomed) {
             IconButton(
-                onClick = { zoom = 1f; panX = 0f; panY = 0f },
+                onClick = { mz.reset() },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(12.dp)).background(Night.surface.copy(alpha = 0.9f)),
             ) { Icon(Icons.Rounded.CenterFocusStrong, tr("Reset view", "Hele kaart"), tint = Night.text) }
         }
