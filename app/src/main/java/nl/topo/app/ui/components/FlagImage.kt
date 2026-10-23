@@ -53,7 +53,10 @@ fun FlagImage(
     shadow: Boolean = false,
 ) {
     val context = LocalContext.current
+    // Let op: produceState onthoudt de oude waarde als het land wisselt (bijv. in een lijst),
+    // dus altijd opnieuw zetten voor het nieuwe land.
     val bmp by produceState(FlagCache.peek(country.flagAsset), country.flagAsset) {
+        value = FlagCache.peek(country.flagAsset)
         if (value == null) value = FlagCache.load(context, country.flagAsset)
     }
     val ratio = bmp?.let { it.width.toFloat() / it.height } ?: DEFAULT_RATIO
