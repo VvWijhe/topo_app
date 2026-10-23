@@ -99,6 +99,8 @@ fun NightMap(
     glowColor: Color = Night.glow,
     pulseAt: Offset? = null,
     graticule: Boolean = true,
+    /** Alleen deze landen krijgen een grens (null = alle). Zo verraadt de kaart geen landen in de uitdaging. */
+    borders: Set<String>? = null,
     onTap: ((Offset, MapTransform) -> Unit)? = null,
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
@@ -127,13 +129,14 @@ fun NightMap(
             val borderPx = borderDp.toPx()
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
                 paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
-                paths.background.forEach { drawPath(it, decorCol) }
-                paths.background.forEach { drawPath(it, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
+                // Zonder grenzen ook geen kleurverschil met omliggend land, anders zie je toch de vorm.
+                paths.background.forEach { drawPath(it, if (borders != null) landCol else decorCol) }
+                if (borders == null) paths.background.forEach { drawPath(it, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
                 for ((id, p) in paths.countries) drawPath(p, if (id in glow) hoverCol else landCol)
                 paths.lakes.forEach { drawPath(it, Night.water) }
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
                 for ((id, p) in paths.countries) {
-                    if (id !in glow) drawPath(p, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
+                    if (id !in glow && (borders == null || id in borders)) drawPath(p, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
                 }
                 // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {

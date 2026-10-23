@@ -47,6 +47,9 @@ fun awardLabel(a: Award, lang: Lang): String = when (a.kind) {
     Award.Kind.MASTERED -> lang.t("Level mastered for the first time", "Niveau voor het eerst gehaald")
     Award.Kind.RECORD -> lang.t("New personal record", "Nieuw persoonlijk record")
     Award.Kind.CASCADE -> lang.t("${"★".repeat(a.n)} also completed", "${"★".repeat(a.n)} ook gehaald")
+    Award.Kind.CHALLENGE_FOUND -> lang.t("${a.n} countries found", "${a.n} landen gevonden")
+    Award.Kind.CHALLENGE_DONE -> lang.t("Challenge complete", "Uitdaging voltooid")
+    Award.Kind.HINTS -> lang.t("${a.n} hints used", "${a.n} hints gebruikt")
     Award.Kind.DAILY -> if (a.n <= 1) lang.t("First round today", "Eerste ronde vandaag")
         else lang.t("Daily bonus · day ${a.n} of your streak", "Dagbonus · dag ${a.n} van je reeks")
 }
@@ -116,7 +119,7 @@ fun PointsPanel(outcome: RoundOutcome, modifier: Modifier = Modifier) {
         outcome.awards.forEach { a ->
             Row {
                 Text(awardLabel(a, lang), style = MaterialTheme.typography.bodySmall, color = Night.text, modifier = Modifier.weight(1f))
-                Text("+${formatPoints(a.points, lang)}", style = MaterialTheme.typography.labelMedium, color = Night.gold)
+                Text((if (a.points >= 0) "+" else "−") + formatPoints(kotlin.math.abs(a.points), lang), style = MaterialTheme.typography.labelMedium, color = if (a.points >= 0) Night.gold else Night.muted)
             }
         }
         if (outcome.cascadedLevels.isNotEmpty()) {
