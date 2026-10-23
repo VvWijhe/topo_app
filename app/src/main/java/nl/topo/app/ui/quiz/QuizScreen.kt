@@ -81,7 +81,7 @@ private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: 
         return
     }
     val roundLength = if (settings.roundLength == RoundLength.ALL) null else 10
-    val game = remember(setup, roundLength) { QuizGame(setup, roundLength) }
+    val game = remember(setup, roundLength, settings.strictTyping) { QuizGame(setup, roundLength, strict = settings.strictTyping) }
     // Uitslag opslaan zodra de ronde klaar is.
     LaunchedEffect(game, game.finished) {
         outcome = if (game.finished) app.progress.recordRound(

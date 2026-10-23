@@ -81,6 +81,9 @@ import nl.topo.app.data.i18n.LocalLang
 import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.quiz.Feature
+import nl.topo.app.data.prefs.Settings
+import nl.topo.app.ui.LocalAppContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.topo.app.data.quiz.Mode
 import nl.topo.app.data.quiz.Opt
 import nl.topo.app.data.quiz.Prompt
@@ -342,12 +345,13 @@ private fun TypeAnswer(game: QuizGame, q: Question) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(q) { runCatching { focus.requestFocus() } }
     val done = game.given != null
+    val strict = LocalAppContainer.current.settings.settings.collectAsStateWithLifecycle(Settings()).value.strictTyping
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = text,
             onValueChange = { if (!done) text = it },
             modifier = Modifier.weight(1f).focusRequester(focus),
-            placeholder = { Text(tr("Type it — accents don't matter", "Typ het — accenten maken niet uit"), color = Night.faint) },
+            placeholder = { Text(if (strict) tr("Type it — exact spelling", "Typ het — precies goed gespeld") else tr("Type it — accents don't matter", "Typ het — accenten maken niet uit"), color = Night.faint) },
             singleLine = true,
             enabled = !done,
             shape = MaterialTheme.shapes.medium,

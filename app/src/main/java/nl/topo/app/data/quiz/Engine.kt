@@ -112,7 +112,13 @@ class QuizSetup(
  * Een ronde. Fout beantwoorde vragen komen aan het eind nog één keer terug;
  * de score telt alleen de eerste poging.
  */
-class QuizGame(private val setup: QuizSetup, private val roundLength: Int?, private val rnd: Random = Random.Default) {
+class QuizGame(
+    private val setup: QuizSetup,
+    private val roundLength: Int?,
+    /** Strikte spelling: accenten en exacte schrijfwijze verplicht. */
+    private val strict: Boolean = false,
+    private val rnd: Random = Random.Default,
+) {
     private val queue = mutableStateListOf<String>()
     private val retried = mutableSetOf<String>()
 
@@ -159,7 +165,8 @@ class QuizGame(private val setup: QuizSetup, private val roundLength: Int?, priv
     fun type(text: String) {
         val q = question ?: return
         if (given != null || text.isBlank()) return
-        resolve(Matching.matches(text, q.accept), null, text.trim())
+        val ok = if (strict) Matching.matchesStrict(text, q.accept) else Matching.matches(text, q.accept)
+        resolve(ok, null, text.trim())
     }
 
     private fun resolve(ok: Boolean, picked: String?, typed: String?) {
@@ -208,6 +215,13 @@ object Matching {
     private fun variants(s: String): Set<String> {
         val low = s.lowercase().trim()
         return setOf(fold(low), fold(low.replace(article, ""))).filter { it.isNotEmpty() }.toSet()
+    }
+
+    /** Strikt: precies goed gespeld, met accenten; alleen hoofdletters en spaties maken niet uit. */
+    fun matchesStrict(typed: String, accept: List<String>): Boolean {
+        fun norm(s: String) = Normalizer.normalize(s, Normalizer.Form.NFC).trim().replace(Regex("\\s+"), " ").replace('’', '\'').lowercase()
+        val t = norm(typed)
+        return t.isNotEmpty() && accept.any { norm(it) == t }
     }
 
     /** Goed als een variant gelijk is; één tikfout mag vanaf 5 letters, twee vanaf 10. */
