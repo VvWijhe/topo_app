@@ -117,23 +117,71 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
             }
 
             p[Keys.ROUNDS] = (p[Keys.ROUNDS] ?: 0) + 1
-            val today = LocalDate.now().toEpochDay()
-            val lastDay = p[Keys.LAST_DAY]
-            val streak = when {
-                lastDay == today -> p[Keys.STREAK] ?: 1
-                lastDay == today - 1 -> (p[Keys.STREAK] ?: 0) + 1
-                else -> 1
-            }
-            // Eerste ronde van de dag: dagbonus, groter bij een langere reeks
-            if (lastDay != today) awards += Award(Award.Kind.DAILY, 25 + minOf(50, 5 * (streak - 1)), streak)
-            p[Keys.STREAK] = streak
-            p[Keys.LAST_DAY] = today
             p[Keys.LAST_PLAYED] = "${region.name}|$topicId|$level"
+            val (before, after) = applyDayAndPoints(p, awards)
+            outcome = RoundOutcome(record, awards, before, after, cascaded)
+        }
+        return outcome
+    }
 
-            val before = p[Keys.POINTS] ?: 0
-            val gained = awards.sumOf { it.points }
-            p[Keys.POINTS] = before + gained
-            outcome = RoundOutcome(record, awards, before, before + gained, cascaded)
+    /** Werkt de dagreeks bij, voegt de dagbonus toe en telt de punten op. */
+    private fun applyDayAndPoints(p: androidx.datastore.preferences.core.MutablePreferences, awards: MutableList<Award>): Pair<Int, Int> {
+        val today = LocalDate.now().toEpochDay()
+        val lastDay = p[Keys.LAST_DAY]
+        val streak = when {
+            lastDay == today -> p[Keys.STREAK] ?: 1
+            lastDay == today - 1 -> (p[Keys.STREAK] ?: 0) + 1
+            else -> 1
+        }
+        // Eerste ronde van de dag: dagbonus, groter bij een langere reeks
+        if (lastDay != today) awards += Award(Award.Kind.DAILY, 25 + minOf(50, 5 * (streak - 1)), streak)
+        p[Keys.STREAK] = streak
+        p[Keys.LAST_DAY] = today
+        val before = p[Keys.POINTS] ?: 0
+        val after = maxOf(0, before + awards.sumOf { it.points })
+        p[Keys.POINTS] = after
+        return before to after
+    }
+
+    // ---------------- dagelijkse uitdaging ----------------
+
+    private fun dailyKey(day: Long, d: String, what: String) = "daily/$day/$d/$what"
+
+    /** Stand van de uitdaging van [day] op [difficulty] ("EASY"/"HARD"). */
+    fun daily(day: Long, difficulty: String): Flow<DailyState> = store.data.map { p ->
+        DailyState(
+            found = p[stringPreferencesKey(dailyKey(day, difficulty, "found"))]?.split(',')?.filter { it.isNotEmpty() }.orEmpty(),
+            hints = p[intPreferencesKey(dailyKey(day, difficulty, "hints"))] ?: 0,
+            finished = p[intPreferencesKey(dailyKey(day, difficulty, "points"))] != null,
+            points = p[intPreferencesKey(dailyKey(day, difficulty, "points"))] ?: 0,
+            gaveUp = p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] == 1,
+        )
+    }
+
+    suspend fun saveDaily(day: Long, difficulty: String, found: List<String>, hints: Int) {
+        store.edit { p ->
+            p[stringPreferencesKey(dailyKey(day, difficulty, "found"))] = found.joinToString(",")
+            p[intPreferencesKey(dailyKey(day, difficulty, "hints"))] = hints
+        }
+    }
+
+    /**
+     * Rond de uitdaging af en deel punten uit: per gevonden land (makkelijk 10, moeilijk 25),
+     * een bonus als alles gevonden is (50 / 200), en 5 punten aftrek per hint.
+     */
+    suspend fun finishDaily(day: Long, difficulty: String, hard: Boolean, found: Int, total: Int, hints: Int, gaveUp: Boolean): RoundOutcome {
+        var outcome = RoundOutcome(false, emptyList(), 0, 0, emptyList())
+        store.edit { p ->
+            val pointsKey = intPreferencesKey(dailyKey(day, difficulty, "points"))
+            if (p[pointsKey] != null) return@edit // al afgerond
+            val awards = mutableListOf<Award>()
+            if (found > 0) awards += Award(Award.Kind.CHALLENGE_FOUND, found * if (hard) 25 else 10, found)
+            if (found == total && total > 0) awards += Award(Award.Kind.CHALLENGE_DONE, if (hard) 200 else 50)
+            if (hints > 0) awards += Award(Award.Kind.HINTS, -5 * hints, hints)
+            val (before, after) = applyDayAndPoints(p, awards)
+            p[pointsKey] = after - before
+            if (gaveUp) p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] = 1
+            outcome = RoundOutcome(false, awards, before, after, emptyList())
         }
         return outcome
     }
@@ -141,7 +189,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
     suspend fun reset() {
         store.edit { p ->
             p.asMap().keys
-                .filter { it.name.startsWith(Keys.BEST_PREFIX) || it.name.startsWith("progress/") }
+                .filter { it.name.startsWith(Keys.BEST_PREFIX) || it.name.startsWith("progress/") || it.name.startsWith("daily/") }
                 .forEach { p.remove(it) }
         }
     }
@@ -157,7 +205,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
 
 /** Eén bonus na een ronde. [n]: aantal antwoorden, niveau of dagen, afhankelijk van [kind]. */
 data class Award(val kind: Kind, val points: Int, val n: Int = 0) {
-    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY }
+    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY, CHALLENGE_FOUND, CHALLENGE_DONE, HINTS }
 }
 
 data class RoundOutcome(
@@ -199,3 +247,12 @@ object Ranks {
         return (points - cur.min).toFloat() / (nxt.min - cur.min)
     }
 }
+
+/** Stand van een dagelijkse uitdaging. */
+data class DailyState(
+    val found: List<String> = emptyList(),
+    val hints: Int = 0,
+    val finished: Boolean = false,
+    val points: Int = 0,
+    val gaveUp: Boolean = false,
+)

@@ -11,6 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Today
+import nl.topo.app.data.daily.Difficulty
+import nl.topo.app.ui.daily.DailyPlayScreen
+import nl.topo.app.ui.daily.DailyScreen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -53,6 +57,9 @@ object Routes {
     const val SETTINGS = "settings"
     const val REGION = "region/{region}"
     const val QUIZ = "quiz/{region}/{topic}/{level}"
+    const val DAILY = "daily"
+    const val DAILY_PLAY = "daily/{difficulty}"
+    fun dailyPlay(d: Difficulty) = "daily/${d.name}"
     fun region(id: RegionId) = "region/${id.name}"
     fun quiz(id: RegionId, topic: String, level: Int) = "quiz/${id.name}/$topic/$level"
 }
@@ -61,6 +68,7 @@ private data class Tab(val route: String, val label: Txt, val icon: ImageVector)
 
 private val tabs = listOf(
     Tab(Routes.HOME, Txt("Map", "Kaart"), Icons.Rounded.Explore),
+    Tab(Routes.DAILY, Txt("Daily", "Dagelijks"), Icons.Rounded.Today),
     Tab(Routes.PROGRESS, Txt("Progress", "Voortgang"), Icons.Rounded.Insights),
     Tab(Routes.SETTINGS, Txt("Settings", "Instellingen"), Icons.Rounded.Settings),
 )
@@ -100,6 +108,13 @@ fun TopoApp() {
                             onGoToMap = { nav.switchTab(Routes.HOME) },
                         )
                     }
+                }
+                composable(Routes.DAILY) {
+                    Box(Modifier.statusBarsPadding()) { DailyScreen(onPlay = { nav.navigate(Routes.dailyPlay(it)) }) }
+                }
+                composable(Routes.DAILY_PLAY, arguments = listOf(navArgument("difficulty") { type = NavType.StringType })) { e ->
+                    val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
+                    Box(Modifier.statusBarsPadding()) { DailyPlayScreen(d, onBack = { nav.popBackStack() }) }
                 }
                 composable(Routes.SETTINGS) { Box(Modifier.statusBarsPadding()) { SettingsScreen() } }
                 composable(Routes.REGION, arguments = listOf(navArgument("region") { type = NavType.StringType })) { e ->
