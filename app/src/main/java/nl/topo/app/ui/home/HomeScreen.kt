@@ -85,6 +85,7 @@ import nl.topo.app.ui.components.NightMap
 import nl.topo.app.ui.components.ProgressRing
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.components.StreakChip
+import nl.topo.app.ui.components.PointsChip
 import nl.topo.app.ui.components.anchorAt
 import nl.topo.app.ui.theme.Night
 import java.text.NumberFormat
@@ -159,7 +160,7 @@ fun HomeScreen(
                     map = w.geo,
                     viewport = viewport,
                     modifier = Modifier.fillMaxSize(),
-                    padTop = 96.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                    padTop = 112.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     padBottom = 16.dp,
                     glow = glow,
                     glowColor = if (country != null) Night.ember else Night.glow,
@@ -194,7 +195,7 @@ fun HomeScreen(
                         else -> null
                     }
                     if (backLabel != null) {
-                        MapTag("← $backLabel", Night.glow, false, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 112.dp)) {
+                        MapTag("← $backLabel", Night.glow, false, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 128.dp)) {
                             if (country != null) countryCode = null else selectRegion(RegionId.WERELD)
                         }
                     }
@@ -225,7 +226,10 @@ fun HomeScreen(
                         style = MaterialTheme.typography.bodyMedium, color = Night.muted,
                     )
                 }
-                StreakChip(progress.streak)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PointsChip(progress.points)
+                    StreakChip(progress.streak)
+                }
             }
         }
 

@@ -88,6 +88,8 @@ import nl.topo.app.data.quiz.Question
 import nl.topo.app.data.quiz.QuizGame
 import nl.topo.app.data.quiz.QuizMap
 import nl.topo.app.data.quiz.QuizSetup
+import nl.topo.app.data.prefs.RoundOutcome
+import nl.topo.app.ui.components.PointsPanel
 import nl.topo.app.ui.components.Eyebrow
 import nl.topo.app.ui.components.FlagImage
 import nl.topo.app.ui.components.GlowButton
@@ -106,7 +108,7 @@ fun QuizPlayScreen(
     level: Int,
     haptics: Boolean,
     mapLabels: Boolean,
-    record: Boolean?,
+    outcome: RoundOutcome?,
     onBack: () -> Unit,
     onNextLevel: (() -> Unit)?,
 ) {
@@ -121,7 +123,7 @@ fun QuizPlayScreen(
     if (game.finished) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Header(setup, game, region, level, onBack)
-            Result(game, level, record, onAgain = { game.restart() }, onBack = onBack, onNextLevel = onNextLevel)
+            Result(game, level, outcome, onAgain = { game.restart() }, onBack = onBack, onNextLevel = onNextLevel)
             Spacer(Modifier.height(24.dp))
         }
         return
@@ -345,7 +347,7 @@ private fun TypeAnswer(game: QuizGame, q: Question) {
             value = text,
             onValueChange = { if (!done) text = it },
             modifier = Modifier.weight(1f).focusRequester(focus),
-            placeholder = { Text(tr("Type the answer", "Typ het antwoord"), color = Night.faint) },
+            placeholder = { Text(tr("Type it — accents don't matter", "Typ het — accenten maken niet uit"), color = Night.faint) },
             singleLine = true,
             enabled = !done,
             shape = MaterialTheme.shapes.medium,
@@ -554,7 +556,8 @@ private fun Tag(text: String, color: Color, modifier: Modifier) {
 // ======================= uitslag =======================
 
 @Composable
-private fun Result(game: QuizGame, level: Int, record: Boolean?, onAgain: () -> Unit, onBack: () -> Unit, onNextLevel: (() -> Unit)?) {
+private fun Result(game: QuizGame, level: Int, outcome: RoundOutcome?, onAgain: () -> Unit, onBack: () -> Unit, onNextLevel: (() -> Unit)?) {
+    val record = outcome?.record
     val pct = game.percent
     val color = when { pct >= Levels.MASTERED -> Night.glow; pct >= Levels.OK -> Night.mid; else -> Night.danger }
     NightCard(Modifier.fillMaxWidth()) {
@@ -574,6 +577,7 @@ private fun Result(game: QuizGame, level: Int, record: Boolean?, onAgain: () -> 
             },
             style = MaterialTheme.typography.bodyMedium, color = Night.muted,
         )
+        outcome?.let { Spacer(Modifier.height(12.dp)); PointsPanel(it) }
         if (game.misses.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
             Eyebrow(tr("Practise these", "Nog even oefenen"))

@@ -184,23 +184,46 @@ class QuizGame(private val setup: QuizSetup, private val roundLength: Int?, priv
 // ======================= hulpjes =======================
 
 object Matching {
-    fun fold(s: String): String =
-        Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
-            .lowercase().replace("ø", "o").replace("æ", "ae").replace("ł", "l").replace("ß", "ss")
-            .replace(Regex("[^a-z0-9]"), "")
+    /** Letters die Unicode niet in 'letter + accent' opsplitst. */
+    private val special = mapOf(
+        'ı' to "i", 'ł' to "l", 'đ' to "d", 'ð' to "d", 'þ' to "th", 'ħ' to "h", 'ø' to "o", 'æ' to "ae", 'œ' to "oe",
+        'ß' to "ss", 'ə' to "e", 'ŀ' to "l", 'ŋ' to "n", 'ſ' to "s", 'ĸ' to "k", '’' to "'", 'ʼ' to "'", 'ʻ' to "'",
+    )
 
-    /** Goed als het (zonder accenten en leestekens) gelijk is; bij langere namen mag één tikfout. */
+    /**
+     * Maakt een naam vergelijkbaar: geen hoofdletters, accenten, leestekens of spaties;
+     * speciale letters naar gewone; 'ij' en 'y' gelijk; Saint/Sint/Sankt/St. vooraan gelijk.
+     */
+    fun fold(s: String): String {
+        var x = Normalizer.normalize(s.lowercase().trim(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+        x = buildString { for (c in x) append(special[c] ?: c.toString()) }
+        x = x.replace(Regex("[^a-z0-9]"), "")
+        x = x.replace(Regex("^(sainte|saint|sankt|sint)"), "st")
+        return x.replace("ij", "y")
+    }
+
+    private val article = Regex("^(the|de|het|la|le|les|el|al|il)\\s+")
+
+    /** Varianten om te vergelijken: met en zonder lidwoord vooraan ("The Hague" ↔ "Hague"). */
+    private fun variants(s: String): Set<String> {
+        val low = s.lowercase().trim()
+        return setOf(fold(low), fold(low.replace(article, ""))).filter { it.isNotEmpty() }.toSet()
+    }
+
+    /** Goed als een variant gelijk is; één tikfout mag vanaf 5 letters, twee vanaf 10. */
     fun matches(typed: String, accept: List<String>): Boolean {
-        val t = fold(typed)
-        if (t.isEmpty()) return false
+        val ts = variants(typed)
+        if (ts.isEmpty()) return false
         return accept.any { a ->
-            val f = fold(a)
-            f.isNotEmpty() && (f == t || (f.length >= 6 && levenshtein(f, t) <= 1))
+            variants(a).any { f ->
+                val allowed = when { f.length >= 10 -> 2; f.length >= 5 -> 1; else -> 0 }
+                ts.any { t -> f == t || (allowed > 0 && levenshtein(f, t, allowed) <= allowed) }
+            }
         }
     }
 
-    private fun levenshtein(a: String, b: String): Int {
-        if (kotlin.math.abs(a.length - b.length) > 1) return 2
+    private fun levenshtein(a: String, b: String, max: Int): Int {
+        if (kotlin.math.abs(a.length - b.length) > max) return max + 1
         val prev = IntArray(b.length + 1) { it }
         val cur = IntArray(b.length + 1)
         for (i in 1..a.length) {

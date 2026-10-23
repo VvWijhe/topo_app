@@ -50,6 +50,7 @@ import nl.topo.app.ui.components.GlowButton
 import nl.topo.app.ui.components.NightCard
 import nl.topo.app.ui.components.ProgressBar
 import nl.topo.app.ui.components.ProgressRing
+import nl.topo.app.ui.components.RankBar
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.theme.Night
 
@@ -69,6 +70,7 @@ fun ProgressScreen(onOpenRegion: (RegionId) -> Unit, onGoToMap: () -> Unit) {
                 Text(tr("What you know, and what you don't yet", "Wat je al kent, en wat nog niet"), style = MaterialTheme.typography.bodyMedium, color = Night.muted)
             }
         }
+        item { NightCard(Modifier.fillMaxWidth()) { RankBar(progress.points) } }
         if (progress.rounds == 0) {
             item { EmptyState(onGoToMap) }
         } else {
