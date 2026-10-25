@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Spellcheck
 import androidx.compose.material.icons.rounded.TextFields
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +74,7 @@ fun SettingsScreen() {
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val uri = LocalUriHandler.current
     var confirmReset by remember { mutableStateOf(false) }
     var resetDone by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf(false) }
@@ -154,8 +157,11 @@ fun SettingsScreen() {
             )
         }
 
-        Section(tr("About Topo", "Over Topo")) {
+        Section(tr("About Lodestar", "Over Lodestar")) {
             SettingRow(Icons.Rounded.Info, tr("Version $version", "Versie $version"), tr("Made for learning geography", "Gemaakt om topografie te leren"))
+            Divider()
+            SettingRow(Icons.Rounded.Policy, tr("Privacy policy", "Privacybeleid"), tr("No ads, no tracking; progress stays on your phone", "Geen reclame, geen tracking; je voortgang blijft op je telefoon"),
+                onClick = { runCatching { uri.openUri("https://github.com/VvWijhe/topo_app/blob/main/PRIVACY.md") } })
             Divider()
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Eyebrow(tr("Sources", "Bronnen"))

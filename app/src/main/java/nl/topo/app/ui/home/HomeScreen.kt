@@ -228,7 +228,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Topo", style = MaterialTheme.typography.displayMedium, color = Night.text)
+                    Text("Lodestar", style = MaterialTheme.typography.displayMedium, color = Night.text)
                     Text(
                         when {
                             countryCode != null -> tr("Tap a neighbour, or go back", "Tik een buurland aan, of ga terug")

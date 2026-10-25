@@ -16,18 +16,18 @@ val topoVersionName = "$versionMajor.${(commitCount - versionBase).coerceAtLeast
 
 android {
     namespace = "nl.topo.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "nl.topo.app"
+        applicationId = "nl.vanwijhe.lodestar"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = commitCount
         versionName = topoVersionName
     }
 
     // Vaste sleutel, zodat elke nieuwe versie over de vorige heen te installeren is (met behoud van voortgang).
-    // Alleen voor eigen gebruik; voor de Play Store komt er een echte, geheime sleutel.
+    // Alleen voor eigen gebruik (de APK van GitHub).
     signingConfigs {
         getByName("debug") {
             storeFile = file("topo-debug.keystore")
@@ -35,15 +35,29 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Upload-sleutel voor de Play Store. Het bestand is versleuteld met een sterk wachtwoord,
+        // dat alleen als GitHub-secret bestaat (UPLOAD_KEY_PASSWORD).
+        System.getenv("UPLOAD_KEY_PASSWORD")?.takeIf { it.isNotBlank() }?.let { pw ->
+            create("upload") {
+                storeFile = file("lodestar-upload.jks")
+                storePassword = pw
+                keyAlias = "upload"
+                keyPassword = pw
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            // Eigen ID, zodat de GitHub-versie en de Play Store-versie naast elkaar kunnen staan.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+        }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Geen code-verkleining: veiliger (geen R8-verrassingen), de app wordt er maar iets groter van.
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Tijdelijk: release ondertekenen met de debug-sleutel, zodat je hem zonder eigen sleutel kunt installeren.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

@@ -1,4 +1,4 @@
-# Topo — Android-app
+# Lodestar — Android-app
 
 Topografie leren: Nederland en Europa, in de donkere *Nachtkaart*-stijl.
 Gebouwd met Kotlin en Jetpack Compose.

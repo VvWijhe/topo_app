@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   build:
+    env:
+      # Wachtwoord van de Play Store upload-sleutel (Settings → Secrets → Actions). Zonder secret: alleen de APK.
+      UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
     # Vast image: daarop staat de Android SDK al geïnstalleerd (ANDROID_HOME).
     runs-on: ubuntu-24.04
     steps:
@@ -32,6 +35,14 @@ jobs:
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
           echo "VERSION=$(./gradlew -q --no-daemon :app:printVersionName | tail -1)" >> "$GITHUB_ENV"
         continue-on-error: false
+
+      - name: Play Store-bundel bouwen (.aab)
+        if: env.UPLOAD_KEY_PASSWORD != ''
+        run: |
+          set -o pipefail
+          ./gradlew bundleRelease --no-daemon 2>&1 | tee -a build.log
+          cp app/build/outputs/bundle/release/app-release.aab "lodestar-${VERSION}.aab"
+          echo "AAB=lodestar-${VERSION}.aab" >> "$GITHUB_ENV"
 
       - name: Bouwfouten tonen
         if: failure()
@@ -56,10 +67,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: laatste
-          name: Topo ${{ env.VERSION }} (laatste versie)
+          name: Lodestar ${{ env.VERSION }} (laatste versie)
           body: |
             Versie ${{ env.VERSION }}, automatisch gebouwd uit commit ${{ github.sha }}.
-            Download **app-debug.apk** hieronder en open het bestand op je telefoon.
+            - **app-debug.apk**: direct installeren op je telefoon ("Lodestar dev").
+            - **lodestar-…aab**: uploaden in de Play Console (Testen → Interne tests → Nieuwe release).
           prerelease: true
           make_latest: false
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            ${{ env.AAB }}

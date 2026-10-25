@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Wereldbol met lengte- en breedtegraden en een gloeiende speld -->
+<!-- Wereldbol met lengte- en breedtegraden en een leidster (lodestar) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
@@ -8,11 +8,11 @@
             android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
         <path android:fillColor="#00000000" android:strokeColor="#FF35506E" android:strokeWidth="1.2"
             android:pathData="M30,54h48M54,30c-9,7 -9,41 0,48M54,30c9,7 9,41 0,48M33,42h42M33,66h42" />
-        <path android:fillColor="#553BE8A0"
-            android:pathData="M58,34a10,10 0,1 1,0 20a10,10 0,1 1,0 -20z" />
-        <path android:fillColor="#FF3BE8A0"
-            android:pathData="M58,36c-4.4,0 -8,3.5 -8,7.9c0,6 8,13.1 8,13.1s8,-7.1 8,-13.1c0,-4.4 -3.6,-7.9 -8,-7.9z" />
-        <path android:fillColor="#FF0A1220"
-            android:pathData="M58,40.6a3.2,3.2 0,1 1,0 6.4a3.2,3.2 0,1 1,0 -6.4z" />
+        <path android:fillColor="#33FFC857"
+            android:pathData="M66,25a13,13 0,1 1,0 26a13,13 0,1 1,0 -26z" />
+        <path android:fillColor="#FFFFC857"
+            android:pathData="M66,26.5L68.6,35.4L77.5,38L68.6,40.6L66,49.5L63.4,40.6L54.5,38L63.4,35.4Z" />
+        <path android:fillColor="#FFFFF4D6"
+            android:pathData="M66,35.6a2.4,2.4 0,1 1,0 4.8a2.4,2.4 0,1 1,0 -4.8z" />
     </group>
 </vector>
