@@ -94,3 +94,42 @@ Een nieuwe regio of nieuw onderwerp voeg je toe in `data/content/Content.kt`.
 - Kaarten: [Natural Earth](https://www.naturalearthdata.com) (publiek domein), CBS-gebiedsindelingen via [cartomap/nl](https://github.com/cartomap/nl)
 - Landgegevens: [mledoze/countries](https://github.com/mledoze/countries) (ODbL)
 - Lettertypen: Young Serif en Figtree, SIL Open Font License (zie `assets/`)
+
+## Online ranglijst (Firebase) — nog aan te zetten
+
+De app bewaart nu alle uitslagen van de dagelijkse uitdaging lokaal (`OfflineLeaderboard`)
+en zet ze in een wachtrij. Zodra Firebase aan staat, gaan ze automatisch naar de online lijst.
+De schermen gebruiken alleen de interface `LeaderboardService` (`data/online/Leaderboard.kt`),
+dus alleen de implementatie hoeft te wisselen.
+
+1. Maak een project op https://console.firebase.google.com en voeg een Android-app toe met
+   package `nl.topo.app`. Vul de SHA-1 van `app/topo-debug.keystore` in
+   (`keytool -list -v -keystore app/topo-debug.keystore -storepass android`).
+2. Download `google-services.json` en zet die in `app/`.
+3. Zet **Authentication → Anonymous** aan en maak een **Firestore**-database (productiemodus).
+4. Voeg de plugin `com.google.gms.google-services` en de dependencies
+   `firebase-bom`, `firebase-auth`, `firebase-firestore` toe.
+5. Schrijf `FirebaseLeaderboard : LeaderboardService`:
+   - documenten `scores/{day}_{difficulty}_{uid}` met de velden van `ScoreSubmission`;
+   - `ranking(DAY)`: query op `day` + `difficulty`, gesorteerd op `points` desc, `timeMs` asc, limit 50;
+   - `ranking(WEEK)`: query `day >= weekStart`, optellen per speler;
+   - `flush()`: de wachtrij uit `online/pending` versturen en leegmaken.
+6. Vervang in `TopoApplication.kt` `OfflineLeaderboard(...)` door `FirebaseLeaderboard(...)`.
+
+Firestore-regels (alleen je eigen score, één keer, met grenzen):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /scores/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && id == string(request.resource.data.day) + '_' + request.resource.data.difficulty + '_' + request.auth.uid
+        && request.resource.data.points is int && request.resource.data.points >= 0 && request.resource.data.points <= 2000
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
+      allow delete: if request.auth != null && resource.data.playerId == request.auth.uid;
+    }
+  }
+}
+```

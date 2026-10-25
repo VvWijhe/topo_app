@@ -157,11 +157,13 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
             gaveUp = p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] == 1,
             mistakes = p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] ?: 0,
             lost = p[intPreferencesKey(dailyKey(day, difficulty, "lost"))] == 1,
+            timeMs = p[longPreferencesKey(dailyKey(day, difficulty, "timeMs"))] ?: 0L,
         )
     }
 
-    suspend fun saveDaily(day: Long, difficulty: String, found: List<String>, hints: Int, mistakes: Int = 0) {
+    suspend fun saveDaily(day: Long, difficulty: String, found: List<String>, hints: Int, mistakes: Int = 0, timeMs: Long? = null) {
         store.edit { p ->
+            if (timeMs != null) p[longPreferencesKey(dailyKey(day, difficulty, "timeMs"))] = timeMs
             p[stringPreferencesKey(dailyKey(day, difficulty, "found"))] = found.joinToString(",")
             p[intPreferencesKey(dailyKey(day, difficulty, "hints"))] = hints
             p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] = mistakes
@@ -285,6 +287,8 @@ data class DailyState(
     val gaveUp: Boolean = false,
     val mistakes: Int = 0,
     val lost: Boolean = false,
+    /** Gespeelde tijd (alleen terwijl het scherm open was). */
+    val timeMs: Long = 0L,
 )
 
 /** Regels voor fouten in de dagelijkse uitdaging. */

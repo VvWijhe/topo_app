@@ -67,6 +67,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.runtime.mutableLongStateOf
+import nl.topo.app.data.online.ScoreSubmission
 import nl.topo.app.data.daily.Challenge
 import nl.topo.app.data.daily.DailyChallenges
 import nl.topo.app.data.daily.Difficulty
@@ -140,7 +146,21 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
     var gaveUp by remember { mutableStateOf(stored.gaveUp) }
     var mistakes by remember { mutableIntStateOf(stored.mistakes) }
     var lost by remember { mutableStateOf(stored.lost) }
+    var rankingVersion by remember { mutableIntStateOf(0) }
     val maxMistakes = DailyRules.maxMistakes(hard)
+    // Speeltijd: telt alleen zolang de app op de voorgrond is en de uitdaging loopt
+    var elapsed by remember { mutableLongStateOf(stored.timeMs) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(finished) {
+        if (finished) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var sinceSave = 0
+            while (true) {
+                delay(1000); elapsed += 1000; sinceSave++
+                if (sinceSave >= 5) { sinceSave = 0; app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed) }
+            }
+        }
+    }
     var outcome by remember { mutableStateOf<RoundOutcome?>(null) }
     var said by remember { mutableStateOf<Said?>(null) }
     var text by remember { mutableStateOf("") }
@@ -150,8 +170,19 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
         if (finished) return
         finished = true; gaveUp = giveUp; lost = outOfLives
         scope.launch {
-            app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes)
-            outcome = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp, mistakes, outOfLives)
+            app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed)
+            val o = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp, mistakes, outOfLives)
+            outcome = o
+            // Naar de ranglijst (offline: bewaard in de wachtrij tot de online ranglijst aan staat)
+            app.leaderboard.submit(
+                ScoreSubmission(
+                    playerId = app.profile.playerId(), nickname = app.profile.currentNickname(),
+                    day = c.day, difficulty = c.difficulty.name, points = o.gained, found = found.size, total = total,
+                    mistakes = mistakes, hints = hints, timeMs = elapsed, completed = found.size == total,
+                    submittedAt = System.currentTimeMillis(),
+                ),
+            )
+            rankingVersion++
         }
     }
 
@@ -207,6 +238,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
             Text(c.title.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("${found.size} of $total found", "${found.size} van $total gevonden"), style = MaterialTheme.typography.labelMedium, color = Night.muted, modifier = Modifier.weight(1f))
+                Text(formatTime(elapsed), style = MaterialTheme.typography.labelMedium, color = Night.faint); Spacer(Modifier.width(10.dp))
                 if (hints > 0) { Text(tr("$hints hints", "$hints hints"), style = MaterialTheme.typography.labelMedium, color = Night.faint); Spacer(Modifier.width(10.dp)) }
                 // levens: elke fout kost er één
                 repeat(maxMistakes) { i ->
@@ -279,6 +311,8 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                 outcome?.let { PointsPanel(it) } ?: run {
                     if (stored.finished) Text(tr("Points earned today: +${stored.points}", "Punten vandaag verdiend: +${stored.points}"), style = MaterialTheme.typography.bodyMedium, color = Night.gold)
                 }
+                Text(tr("Time: ", "Tijd: ") + formatTime(elapsed), style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                RankingCard(day = c.day, difficulty = c.difficulty, refreshKey = rankingVersion, compact = true)
                 Text(tr("Come back tomorrow for new challenges.", "Kom morgen terug voor nieuwe uitdagingen."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
                 Spacer(Modifier.height(4.dp))
             }

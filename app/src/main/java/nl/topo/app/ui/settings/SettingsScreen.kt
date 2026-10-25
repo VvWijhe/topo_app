@@ -21,6 +21,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Contrast
@@ -59,6 +62,7 @@ import nl.topo.app.data.prefs.RoundLength
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
+import nl.topo.app.ui.daily.NicknameDialog
 import nl.topo.app.ui.theme.Night
 
 @Composable
@@ -70,6 +74,9 @@ fun SettingsScreen() {
     val context = LocalContext.current
     var confirmReset by remember { mutableStateOf(false) }
     var resetDone by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf(false) }
+    val nickname by app.profile.nickname.collectAsStateWithLifecycle("")
+    val pending by app.leaderboard.pending.collectAsStateWithLifecycle(emptyList())
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
@@ -121,6 +128,24 @@ fun SettingsScreen() {
             }
         }
 
+        Section(tr("Ranking", "Ranglijst")) {
+            SettingRow(
+                Icons.Rounded.Badge, tr("Nickname", "Bijnaam"),
+                nickname.ifBlank { tr("Not set yet, tap to choose", "Nog niet gekozen, tik om te kiezen") },
+                onClick = { editName = true },
+            )
+            Divider()
+            if (app.leaderboard.isOnline) {
+                SettingRow(Icons.Rounded.CloudDone, tr("Online ranking", "Online ranglijst"),
+                    if (pending.isEmpty()) tr("Connected, everything sent", "Verbonden, alles verstuurd")
+                    else tr("Connected, ${pending.size} waiting to send", "Verbonden, ${pending.size} nog te versturen"))
+            } else {
+                SettingRow(Icons.Rounded.CloudOff, tr("Online ranking", "Online ranglijst"),
+                    tr("Not switched on yet. ${pending.size} result(s) saved for later.", "Staat nog niet aan. ${pending.size} uitslag(en) bewaard voor later."),
+                    tint = Night.muted)
+            }
+        }
+
         Section(tr("Progress", "Voortgang")) {
             SettingRow(
                 Icons.Rounded.DeleteForever, tr("Reset progress", "Voortgang wissen"),
@@ -149,6 +174,7 @@ fun SettingsScreen() {
         }
     }
 
+    if (editName) NicknameDialog(onDismiss = { editName = false })
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },

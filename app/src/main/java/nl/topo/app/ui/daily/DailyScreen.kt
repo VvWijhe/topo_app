@@ -87,6 +87,7 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
             tr("Easy", "Makkelijk"), tr("5 lives · hints · 10 points per country", "5 levens · hints · 10 punten per land")) { onPlay(Difficulty.EASY) }
         ChallengeCard(hard, hardState, Night.ember, Icons.Rounded.Whatshot,
             tr("Hard", "Moeilijk"), tr("3 lives · no hints · 25 points per country", "3 levens · geen hints · 25 punten per land")) { onPlay(Difficulty.HARD) }
+        RankingCard(day = day, refreshKey = easyState to hardState)
         Text(
             tr(
                 "Everyone gets the same challenges today. The map shows no borders: countries appear as you name them.",
