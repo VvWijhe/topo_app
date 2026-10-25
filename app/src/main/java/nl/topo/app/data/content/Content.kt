@@ -62,7 +62,8 @@ object Levels {
         Level(1, Txt("Easy", "Makkelijk"), Txt("4 choices", "4 keuzes")),
         Level(2, Txt("Medium", "Gemiddeld"), Txt("4 harder choices", "4 lastigere keuzes")),
         Level(3, Txt("Hard", "Moeilijk"), Txt("6 tricky choices", "6 lastige keuzes")),
-        Level(4, Txt("Expert", "Expert"), Txt("type it yourself", "zelf typen")),
+        Level(4, Txt("Expert", "Expert"), Txt("everything, 6 choices", "alles, 6 keuzes")),
+        Level(5, Txt("Master", "Meester"), Txt("type it yourself", "zelf typen")),
     )
     /** Vanaf deze score telt een vakje als 'gekend'. */
     const val MASTERED = 90
@@ -89,7 +90,7 @@ object Content {
         available = true,
         kind = RegionKind.COUNTRY,
         countryCode = "NLD",
-        levelScope = listOf(Txt("the basics", "de basis"), Txt("more places", "meer plaatsen"), Txt("everything", "alles"), Txt("everything", "alles")),
+        levelScope = listOf(Txt("the basics", "de basis"), Txt("more places", "meer plaatsen"), Txt("almost everything", "bijna alles"), Txt("everything", "alles"), Txt("everything", "alles")),
         groups = listOf(
             TopicGroup(
                 Txt("Topography", "Topografie"), Txt("The map of the Netherlands", "De kaart van Nederland"),
@@ -111,7 +112,7 @@ object Content {
         available = true,
         kind = RegionKind.CONTINENT,
         continent = Continent.EU,
-        levelScope = listOf(Txt("best-known countries", "bekendste landen"), Txt("more countries", "meer landen"), Txt("almost all", "bijna alle landen"), Txt("all 50 countries", "alle 50 landen")),
+        levelScope = listOf(Txt("best-known countries", "bekendste landen"), Txt("more countries", "meer landen"), Txt("almost all", "bijna alle landen"), Txt("all 50 countries", "alle 50 landen"), Txt("all 50 countries", "alle 50 landen")),
         groups = listOf(
             TopicGroup(
                 Txt("Countries", "Landen"), Txt("All about the 50 countries of Europe", "Alles over de 50 landen van Europa"),
@@ -147,7 +148,7 @@ object Content {
 
     private val continentScope = listOf(
         Txt("best-known countries", "bekendste landen"), Txt("more countries", "meer landen"),
-        Txt("almost all", "bijna alle landen"), Txt("all countries", "alle landen"),
+        Txt("almost all", "bijna alle landen"), Txt("all countries", "alle landen"), Txt("all countries", "alle landen"),
     )
 
     private fun continent(id: RegionId, c: Continent, name: Txt, tagline: Txt) = Region(

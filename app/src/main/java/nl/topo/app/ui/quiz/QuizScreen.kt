@@ -98,7 +98,7 @@ private fun QuizRoute(region: Region, topicId: String, startLevel: Int, onBack: 
         mapLabels = settings.mapLabels,
         outcome = outcome,
         onBack = onBack,
-        onNextLevel = if (level < 4) ({ level += 1 }) else null,
+        onNextLevel = if (level < Levels.all.size) ({ level += 1 }) else null,
     )
 }
 

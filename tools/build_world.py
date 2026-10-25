@@ -96,10 +96,20 @@ for f in json.load(open('data/ne10_countries.geojson'))['features']:
     if not g: continue
     ne10[f['properties']['ADM0_A3']] = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
 
+# Marokko en Westelijke Sahara volgens de internationaal erkende grens (27°40' N), uit de
+# 'Duitse' weergave van Natural Earth. De standaardkaart volgt de Marokkaanse zandmuur.
+import sys as _sys; _sys.path.insert(0, 'scripts')
+from dbf import read_dbf as _rd; from shp import read_polygons as _rp
+POV = {}
+for _r, _p in zip(_rd('data/ne10_deu.dbf'), _rp('data/ne10_deu.shp')):
+    if _r['ADM0_A3'] in ('MAR', 'SAH'):
+        POV[_r['ADM0_A3']] = [[[list(pt) for pt in ring]] for ring in _p]
+
 countries = {}
 for a3, e in groups.items():
     p = e['props']; code = OUT_CODE.get(a3, a3); m = mc.get(MC_CODE.get(a3, a3))
     polys = e['polys']
+    if a3 in POV: polys = POV[a3]
     detail = False
     if a3 in ne10 and sum(area([pr(x, y) for x, y in pl[0]]) for pl in polys) < 5:
         polys = ne10[a3]; detail = True

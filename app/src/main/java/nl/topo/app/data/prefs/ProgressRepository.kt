@@ -30,10 +30,10 @@ data class Progress(
     fun best(region: RegionId, topicId: String, level: Int): Int? = best[key(region, topicId, level)]
 
     fun mastered(region: Region): Int =
-        region.topics.sumOf { t -> (1..4).count { lv -> (best(region.id, t.id, lv) ?: 0) >= Levels.MASTERED } }
+        region.topics.sumOf { t -> Levels.all.count { lv -> (best(region.id, t.id, lv.stars) ?: 0) >= Levels.MASTERED } }
 
     fun played(region: Region): Int =
-        region.topics.sumOf { t -> (1..4).count { lv -> best(region.id, t.id, lv) != null } }
+        region.topics.sumOf { t -> Levels.all.count { lv -> best(region.id, t.id, lv.stars) != null } }
 
     fun masteredAtLevel(region: Region, level: Int): Int =
         region.topics.count { t -> (best(region.id, t.id, level) ?: 0) >= Levels.MASTERED }
@@ -88,7 +88,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
         var outcome = RoundOutcome(false, emptyList(), 0, 0, emptyList())
         store.edit { p ->
             val awards = mutableListOf<Award>()
-            val stars = level.coerceIn(1, 4)
+            val stars = level.coerceIn(1, Levels.all.size)
             val bestKey = intPreferencesKey(Keys.BEST_PREFIX + Progress.key(region, topicId, level))
             val old = p[bestKey]
             val record = old == null || percent > old
@@ -196,6 +196,24 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
         return outcome
     }
 
+    /**
+     * Eenmalig bij de overstap naar vijf niveaus: de oude ★★★★ (alles typen) heet nu ★★★★★.
+     * Die score gaat naar ★★★★★ en telt ook voor de nieuwe ★★★★ (alles aantikken/kiezen).
+     */
+    suspend fun migrateToFiveLevels() {
+        store.edit { p ->
+            val flag = intPreferencesKey("progress/levels5")
+            if (p[flag] != null) return@edit
+            val old4 = p.asMap().entries.filter { it.key.name.startsWith(Keys.BEST_PREFIX) && it.key.name.endsWith("/4") }
+            for ((k, v) in old4) {
+                val score = v as? Int ?: continue
+                val five = intPreferencesKey(k.name.removeSuffix("/4") + "/5")
+                if (p[five] == null) p[five] = score
+            }
+            p[flag] = 1
+        }
+    }
+
     suspend fun reset() {
         store.edit { p ->
             p.asMap().keys
@@ -231,8 +249,8 @@ data class RoundOutcome(
 }
 
 object Points {
-    /** Punten per goed antwoord: ★ 10, ★★ 20, ★★★ 30, ★★★★ 50. */
-    fun perAnswer(stars: Int) = when (stars) { 1 -> 10; 2 -> 20; 3 -> 30; else -> 50 }
+    /** Punten per goed antwoord: ★ 10, ★★ 20, ★★★ 30, ★★★★ 40, ★★★★★ 60. */
+    fun perAnswer(stars: Int) = when (stars) { 1 -> 10; 2 -> 20; 3 -> 30; 4 -> 40; else -> 60 }
 }
 
 /** Rangen op basis van je totaal aantal punten. */

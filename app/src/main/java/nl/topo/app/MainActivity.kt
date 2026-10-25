@@ -1,6 +1,8 @@
 package nl.topo.app
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -26,6 +28,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         val container = (application as TopoApplication).container
+        lifecycleScope.launch { container.progress.migrateToFiveLevels() }
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle(Settings())
             CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast) {

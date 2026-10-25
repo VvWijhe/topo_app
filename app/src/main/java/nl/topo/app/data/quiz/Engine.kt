@@ -255,11 +255,11 @@ object Levels4 {
         val l1 = min(n, max(10, (n * 0.35).roundToInt()))
         val l2 = min(n, max(l1, (n * 0.6).roundToInt()))
         val l3 = min(n, max(l2, (n * 0.85).roundToInt()))
-        return when (level) { 1 -> l1; 2 -> l2; 3 -> l3; else -> n }
+        return when (level) { 1 -> l1; 2 -> l2; 3 -> l3; else -> n } // ★★★★ en ★★★★★: alles
     }
 
     fun <T> pool(ordered: List<T>, level: Int): List<T> = ordered.take(size(ordered.size, level))
 
-    /** Aantal keuzes per niveau (0 = zelf typen). */
-    fun options(level: Int) = when (level) { 1, 2 -> 4; 3 -> 6; else -> 0 }
+    /** Aantal keuzes per niveau (0 = zelf typen). ★★★★: alles met keuzes/aantikken, ★★★★★: alles typen. */
+    fun options(level: Int) = when (level) { 1, 2 -> 4; 3, 4 -> 6; else -> 0 }
 }

@@ -52,7 +52,7 @@ import nl.topo.app.ui.components.ScoreDot
 import nl.topo.app.ui.components.StarsText
 import nl.topo.app.ui.theme.Night
 
-private val CellWidth = 50.dp
+private val CellWidth = 42.dp
 
 /** Optiescherm per regio: onderwerpen in rijen, niveaus ★–★★★★ in kolommen. */
 @Composable
@@ -102,7 +102,7 @@ private fun Header(region: Region, progress: Progress, onBack: () -> Unit) {
 
 @Composable
 private fun LevelLegend(region: Region, countryCount: Int?) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Levels.all.forEachIndexed { i, lv ->
             Column(
                 Modifier
@@ -110,10 +110,10 @@ private fun LevelLegend(region: Region, countryCount: Int?) {
                     .clip(MaterialTheme.shapes.small)
                     .background(Night.surface.copy(alpha = 0.85f))
                     .border(1.dp, Night.outline, MaterialTheme.shapes.small)
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                    .padding(horizontal = 6.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                StarsText(lv.stars, size = 11)
+                StarsText(lv.stars, size = 9)
                 Text(lv.title.text, style = MaterialTheme.typography.labelMedium, color = Night.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val scope = countryCount?.let { n ->
                     val k = Levels4.size(n, lv.stars)
@@ -146,7 +146,7 @@ private fun TopicTable(region: Region, group: TopicGroup, progress: Progress, on
         ) {
             Eyebrow(tr("Topic", "Onderwerp"), Modifier.weight(1f).padding(start = 16.dp))
             Levels.all.forEach { lv ->
-                Box(Modifier.width(CellWidth), contentAlignment = Alignment.Center) { StarsText(lv.stars, size = 10) }
+                Box(Modifier.width(CellWidth), contentAlignment = Alignment.Center) { StarsText(lv.stars, size = 8) }
             }
             Spacer(Modifier.width(6.dp))
         }
@@ -175,7 +175,7 @@ private fun TopicRow(region: Region, topic: Topic, progress: Progress, onPlay: (
             Box(
                 Modifier.width(CellWidth).fillMaxHeight64().clickable { onPlay(topic.id, lv.stars) },
                 contentAlignment = Alignment.Center,
-            ) { ScoreDot(progress.best(region.id, topic.id, lv.stars)) }
+            ) { ScoreDot(progress.best(region.id, topic.id, lv.stars), diameter = 30.dp) }
         }
         Spacer(Modifier.width(6.dp))
     }

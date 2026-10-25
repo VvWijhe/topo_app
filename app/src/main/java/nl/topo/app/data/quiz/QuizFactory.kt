@@ -273,7 +273,8 @@ object QuizFactory {
             1 -> listOf(0.2, 0.35, 2.8, 4.5, 7.0)
             2 -> listOf(0.3, 0.5, 2.0, 3.0)
             3 -> listOf(0.45, 0.6, 1.6, 2.1, 2.8, 0.75)
-            else -> listOf(0.55, 0.7, 1.35, 1.7, 2.2, 0.8)
+            4 -> listOf(0.55, 0.7, 1.35, 1.7, 2.2, 0.8)
+            else -> listOf(0.6, 0.75, 1.25, 1.5, 1.85, 0.85)
         }
         val n = if (level >= 3) 6 else 4
         return QuizSetup(title, pool.map { it.code }, null) { id, rnd ->

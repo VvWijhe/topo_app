@@ -127,7 +127,7 @@ private fun RegionProgress(region: Region, progress: Progress, onOpen: () -> Uni
             }
         }
         // zwakste plekken: gespeeld maar nog niet gekend
-        val weak = region.topics.flatMap { t -> (1..4).mapNotNull { lv -> progress.best(region.id, t.id, lv)?.takeIf { it < Levels.MASTERED }?.let { Triple(t, lv, it) } } }
+        val weak = region.topics.flatMap { t -> (1..Levels.all.size).mapNotNull { lv -> progress.best(region.id, t.id, lv)?.takeIf { it < Levels.MASTERED }?.let { Triple(t, lv, it) } } }
             .sortedBy { it.third }.take(3)
         if (weak.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
