@@ -117,7 +117,7 @@ private fun LevelLegend(region: Region, countryCount: Int?) {
                 Text(lv.title.text, style = MaterialTheme.typography.labelMedium, color = Night.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val scope = countryCount?.let { n ->
                     val k = Levels4.size(n, lv.stars)
-                    if (k == n) tr("all $n countries", "alle $n landen") else tr("$k of $n countries", "$k van $n landen")
+                    if (k == n) tr("all $n", "alle $n") else tr("$k of $n", "$k van $n")
                 } ?: region.levelScope[i].text
                 Text(scope, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
                 Text(lv.how.text, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 2)

@@ -62,7 +62,7 @@ object Levels {
         Level(1, Txt("Easy", "Makkelijk"), Txt("4 choices", "4 keuzes")),
         Level(2, Txt("Medium", "Gemiddeld"), Txt("4 harder choices", "4 lastigere keuzes")),
         Level(3, Txt("Hard", "Moeilijk"), Txt("6 tricky choices", "6 lastige keuzes")),
-        Level(4, Txt("Expert", "Expert"), Txt("everything, 6 choices", "alles, 6 keuzes")),
+        Level(4, Txt("Expert", "Expert"), Txt("6 choices", "6 keuzes")),
         Level(5, Txt("Master", "Meester"), Txt("type it yourself", "zelf typen")),
     )
     /** Vanaf deze score telt een vakje als 'gekend'. */
