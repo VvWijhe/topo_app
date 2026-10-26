@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "369905304030",
+    "project_id": "lodestar-49a50",
+    "storage_bucket": "lodestar-49a50.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:369905304030:android:51a289302153dec9a45d4f",
+        "android_client_info": {
+          "package_name": "nl.vanwijhe.lodestar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFYqUorrxdWxEGasjQehA-3L26Ezfvdvw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
