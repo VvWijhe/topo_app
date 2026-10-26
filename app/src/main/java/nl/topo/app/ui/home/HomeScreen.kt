@@ -170,6 +170,7 @@ fun HomeScreen(
                     glow = glow,
                     glowColor = if (country != null) Night.ember else Night.glow,
                     pulseAt = country?.capitalPos,
+                    moving = viewport != target,
                     onTap = { p, tf ->
                         val reach = tapReachPx / tf.scale
                         val among = region.continent?.let { w.countriesIn(it) }

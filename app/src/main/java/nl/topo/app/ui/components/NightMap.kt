@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -33,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import nl.topo.app.data.geo.GeoMap
 import nl.topo.app.ui.theme.LocalHighContrast
 import nl.topo.app.ui.theme.Night
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -55,27 +59,45 @@ class MapTransform(val scale: Float, val dx: Float, val dy: Float) {
     }
 }
 
-private class MapPaths(
+/** Eén detailniveau van de kaart: hoe grover, hoe minder punten om te tekenen. */
+private class MapLevel(
+    /** Maximale afwijking in kaart-eenheden (0 = volledig detail). */
+    val tol: Float,
     val countries: Map<String, Path>,
-    val background: List<Path>,
-    val lakes: List<Path>,
-    val rivers: List<Path>,
-    val graticule: List<Path>,
+    val background: Path,
+    val lakes: Path,
 )
 
-private fun buildPaths(map: GeoMap, graticule: Boolean): MapPaths {
-    val grat = if (!graticule) emptyList() else buildList {
-        for (lon in -180..180 step 15) add(Path().apply { for (lat in -80..85) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lat == -80) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
-        for (lat in -75..75 step 15) add(Path().apply { for (lon in -180..180 step 2) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lon == -180) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
+private class MapPaths(val levels: List<MapLevel>, val rivers: List<Path>, val graticule: List<Path>)
+
+/** Alle landen behalve [skip] samengevoegd tot één vlak en één grenslijn: veel sneller dan 200 losse paden. */
+private class Merged(val fill: Path, val edge: Path)
+
+private fun merge(level: MapLevel, skip: Set<String>, borders: Set<String>?): Merged {
+    val fill = Path().apply { fillType = PathFillType.EvenOdd }
+    val edge = Path()
+    for ((id, p) in level.countries) {
+        if (id in skip) continue
+        fill.addPath(p)
+        if (borders == null || id in borders) edge.addPath(p)
     }
-    return MapPaths(
-        countries = map.countries.mapValues { it.value.toPath() },
-        background = map.background.map { it.toPath() },
-        lakes = map.lakes.map { it.toPath() },
-        rivers = map.rivers.values.map { it.toPath(closed = false) },
-        graticule = grat,
-    )
+    return Merged(fill, edge)
 }
+
+private fun buildLevel(map: GeoMap, tol: Float) = MapLevel(
+    tol,
+    countries = map.countries.mapValues { it.value.simplified(tol).toPath() },
+    background = Path().apply { fillType = PathFillType.EvenOdd; map.background.forEach { addPath(it.simplified(tol).toPath()) } },
+    lakes = Path().apply { fillType = PathFillType.EvenOdd; map.lakes.forEach { addPath(it.simplified(tol).toPath()) } },
+)
+
+private fun buildGraticule(map: GeoMap): List<Path> = buildList {
+    for (lon in -180..180 step 15) add(Path().apply { for (lat in -80..85) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lat == -80) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
+    for (lat in -75..75 step 15) add(Path().apply { for (lon in -180..180 step 2) { val p = map.projection.project(lat.toDouble(), lon.toDouble()); if (lon == -180) moveTo(p.x, p.y) else lineTo(p.x, p.y) } })
+}
+
+/** Afwijkingen per niveau, als deel van de kaartbreedte (op de wereldkaart: 0,35 · 1 · 2,5 eenheden van 2000). */
+private val LevelTolerances = floatArrayOf(0f, 0.35f / 2000f, 1f / 2000f, 2.5f / 2000f)
 
 /**
  * De kaart in Nachtkaart-stijl.
@@ -102,9 +124,20 @@ fun NightMap(
     /** Alleen deze landen krijgen een grens (null = alle). Zo verraadt de kaart geen landen in de uitdaging. */
     borders: Set<String>? = null,
     onTap: ((Offset, MapTransform) -> Unit)? = null,
+    /** De kaart beweegt (animatie): teken grover, zodat het soepel blijft. */
+    moving: Boolean = false,
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
-    val paths = remember(map, graticule) { buildPaths(map, graticule) }
+    // Volledig detail meteen; de grovere niveaus op de achtergrond.
+    val full = remember(map) { buildLevel(map, 0f) }
+    val coarse by produceState(emptyList<MapLevel>(), map) {
+        value = withContext(Dispatchers.Default) { LevelTolerances.drop(1).map { buildLevel(map, it * map.width) } }
+    }
+    val rivers = remember(map) { map.rivers.values.map { it.toPath(closed = false) } }
+    val grat = remember(map, graticule) { if (graticule) buildGraticule(map) else emptyList() }
+    val paths = remember(full, coarse, rivers, grat) { MapPaths(listOf(full) + coarse, rivers, grat) }
+    // Samengevoegde paden per niveau, opnieuw bij een andere selectie.
+    val merged = remember(paths, glow, borders) { arrayOfNulls<Merged>(paths.levels.size) }
     val hi = LocalHighContrast.current
     val landCol = if (hi) Night.landHi else Night.land
     val hoverCol = if (hi) Night.landHoverHi else Night.landHover
@@ -119,25 +152,31 @@ fun NightMap(
         val pt = with(density) { padTop.toPx() }
         val pb = with(density) { padBottom.toPx() }
         val tf = remember(size, viewport, pt, pb) { MapTransform.fit(size, viewport, pt, pb) }
+        val currentTf by rememberUpdatedState(tf)
         Canvas(
             Modifier
                 .fillMaxSize()
-                .then(if (onTap != null) Modifier.pointerInput(tf) { detectTapGestures { tap?.invoke(tf.toMap(it), tf) } } else Modifier),
+                .then(if (onTap != null) Modifier.pointerInput(Unit) { detectTapGestures { tap?.invoke(currentTf.toMap(it), currentTf) } } else Modifier),
         ) {
             val s = tf.scale
+            // Kies het grofste niveau dat op het scherm nog niet opvalt (minder dan ~½ pixel, of 1 pixel tijdens bewegen).
+            val maxDev = (if (moving) 1.1f else 0.45f) / s
+            var li = 0
+            for (i in paths.levels.indices) if (paths.levels[i].tol <= maxDev) li = i
+            val level = paths.levels[li]
+            val m = merged[li] ?: merge(level, glow, borders).also { merged[li] = it }
             // Grenzen en kusten: ongeveer 1,2 dp, ongeacht de zoom
             val borderPx = borderDp.toPx()
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
                 paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
                 // Zonder grenzen ook geen kleurverschil met omliggend land, anders zie je toch de vorm.
-                paths.background.forEach { drawPath(it, if (borders != null) landCol else decorCol) }
-                if (borders == null) paths.background.forEach { drawPath(it, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round)) }
-                for ((id, p) in paths.countries) drawPath(p, if (id in glow) hoverCol else landCol)
-                paths.lakes.forEach { drawPath(it, Night.water) }
+                drawPath(level.background, if (borders != null) landCol else decorCol)
+                if (borders == null) drawPath(level.background, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round))
+                drawPath(m.fill, landCol)
+                for (id in glow) level.countries[id]?.let { drawPath(it, hoverCol) }
+                drawPath(level.lakes, Night.water)
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
-                for ((id, p) in paths.countries) {
-                    if (id !in glow && (borders == null || id in borders)) drawPath(p, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
-                }
+                drawPath(m.edge, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
                 // Landen die te klein zijn om te zien (eilandstaten) krijgen een stip.
                 val minPx = 5.dp.toPx()
                 for ((id, shape) in map.countries) {
@@ -152,7 +191,7 @@ fun NightMap(
                 }
                 // Gloed: een brede, doorzichtige lijn onder een scherpe rand.
                 for (id in glow) {
-                    val p = paths.countries[id] ?: continue
+                    val p = level.countries[id] ?: continue
                     drawPath(p, glowColor.copy(alpha = 0.08f))
                     drawPath(p, glowColor.copy(alpha = 0.16f), style = Stroke(7f / s, join = StrokeJoin.Round))
                     drawPath(p, glowColor.copy(alpha = 0.9f), style = Stroke(1.3f / s, join = StrokeJoin.Round))

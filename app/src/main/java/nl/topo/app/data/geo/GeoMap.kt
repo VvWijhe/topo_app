@@ -38,6 +38,28 @@ class GeoShape(val rings: List<FloatArray>) {
         }
     }
 
+    /**
+     * Vereenvoudigde versie (Douglas-Peucker) met afwijking hooguit [tol] kaart-eenheden.
+     * Ringen kleiner dan [tol] vallen weg, behalve als de vorm dan helemaal leeg zou zijn.
+     */
+    fun simplified(tol: Float, closed: Boolean = true): GeoShape {
+        if (tol <= 0f) return this
+        val out = ArrayList<FloatArray>(rings.size)
+        var biggest: FloatArray? = null; var biggestSize = -1f
+        for (ring in rings) {
+            val n = ring.size / 2
+            if (n < 2) continue
+            var l = Float.MAX_VALUE; var t = Float.MAX_VALUE; var r = -Float.MAX_VALUE; var b = -Float.MAX_VALUE
+            for (i in 0 until n) { val x = ring[2 * i]; val y = ring[2 * i + 1]; if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y }
+            val size = maxOf(r - l, b - t)
+            if (size > biggestSize) { biggestSize = size; biggest = ring }
+            if (closed && size < tol) continue
+            out += simplifyRing(ring, tol, closed)
+        }
+        if (out.isEmpty() && biggest != null) out += simplifyRing(biggest, tol, closed)
+        return GeoShape(out)
+    }
+
     /** Kortste afstand van [p] tot de lijnen van deze vorm (voor rivieren). */
     fun distanceTo(p: Offset): Float {
         var best = Float.MAX_VALUE
@@ -179,4 +201,43 @@ internal fun parsePath(d: String): GeoShape {
         if (n >= 4) rings.add(if (n == arr.size) arr else arr.copyOf(n))
     }
     return GeoShape(rings)
+}
+
+
+/** Douglas-Peucker op één ring; een gesloten ring wordt in twee helften gesplitst, zodat begin en eind blijven staan. */
+private fun simplifyRing(ring: FloatArray, tol: Float, closed: Boolean): FloatArray {
+    val n = ring.size / 2
+    if (n <= 4) return ring
+    val keep = BooleanArray(n)
+    val t2 = tol * tol
+    fun dp(a0: Int, b0: Int) {
+        val stack = ArrayDeque<Int>()
+        stack.addLast(a0); stack.addLast(b0)
+        while (stack.isNotEmpty()) {
+            val b = stack.removeLast(); val a = stack.removeLast()
+            keep[a] = true; keep[b] = true
+            if (b - a < 2) continue
+            val ax = ring[2 * a]; val ay = ring[2 * a + 1]
+            val dx = ring[2 * b] - ax; val dy = ring[2 * b + 1] - ay
+            val len2 = dx * dx + dy * dy
+            var best = -1f; var bi = -1
+            for (i in a + 1 until b) {
+                val px = ring[2 * i] - ax; val py = ring[2 * i + 1] - ay
+                val d2 = if (len2 == 0f) px * px + py * py else {
+                    val c = px * dy - py * dx
+                    c * c / len2
+                }
+                if (d2 > best) { best = d2; bi = i }
+            }
+            if (best > t2) { stack.addLast(a); stack.addLast(bi); stack.addLast(bi); stack.addLast(b) }
+        }
+    }
+    if (closed) { val mid = n / 2; dp(0, mid); dp(mid, n - 1) } else dp(0, n - 1)
+    var count = 0
+    for (k in keep) if (k) count++
+    if (closed && count < 4) return ring
+    val res = FloatArray(count * 2)
+    var j = 0
+    for (i in 0 until n) if (keep[i]) { res[j++] = ring[2 * i]; res[j++] = ring[2 * i + 1] }
+    return res
 }
