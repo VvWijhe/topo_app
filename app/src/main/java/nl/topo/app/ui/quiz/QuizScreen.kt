@@ -149,7 +149,7 @@ private fun PlaceholderQuiz(regionId: RegionId, topicId: String, level: Int, onB
                 listOf(45, 75, 100).forEach { pct ->
                     OutlinedButton(onClick = {
                         scope.launch {
-                            val record = app.progress.recordRound(regionId, topicId, level, pct).record
+                            val record = app.progress.recordRound(regionId, topicId, level, pct, wholeLevel = true).record
                             message = if (record) lang.t("$pct% saved — new record", "$pct% opgeslagen — nieuw record") else lang.t("$pct% played; your record stands", "$pct% gespeeld; je record blijft staan")
                         }
                     }) { Text("$pct%", color = Night.text) }

@@ -551,15 +551,20 @@ private fun Result(game: QuizGame, level: Int, outcome: RoundOutcome?, onAgain: 
     val pct = game.percent
     val color = when { pct >= Levels.MASTERED -> Night.glow; pct >= Levels.OK -> Night.mid; else -> Night.danger }
     NightCard(Modifier.fillMaxWidth()) {
-        Eyebrow(tr("Round complete", "Ronde klaar"))
+        Eyebrow(if (outcome?.practice == true) tr("Practice round complete", "Oefenronde klaar") else tr("Round complete", "Ronde klaar"))
         Text("$pct%", style = MaterialTheme.typography.displayLarge, color = color)
         Text(
             tr("${game.correctFirstTry} of ${game.firstCount} right first time", "${game.correctFirstTry} van ${game.firstCount} in één keer goed") +
                 if (record == true) tr(" · new record!", " · nieuw record!") else "",
             style = MaterialTheme.typography.bodyLarge, color = Night.text,
         )
+        val practice = outcome?.practice == true
         Text(
             when {
+                practice -> tr(
+                    "Practice round: this counts for your points and streak. Play the whole level (Settings → Round length) to complete it.",
+                    "Oefenronde: telt mee voor je punten en reeks. Speel het hele niveau (Instellingen → Rondelengte) om het te halen.",
+                )
                 pct == 100 -> tr("Flawless. Time for a higher level.", "Foutloos. Tijd voor een hoger niveau.")
                 pct >= Levels.MASTERED -> tr("Strong. This cell now counts as mastered.", "Sterk. Dit vakje telt als gekend.")
                 pct >= Levels.OK -> tr("Getting there. One more round and you'll pass ${Levels.MASTERED}%.", "Op weg. Nog een ronde en je zit boven de ${Levels.MASTERED}%.")
@@ -591,7 +596,7 @@ private fun Result(game: QuizGame, level: Int, outcome: RoundOutcome?, onAgain: 
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             GlowButton(tr("New round", "Nieuwe ronde"), onAgain, Modifier.fillMaxWidth())
-            if (onNextLevel != null && pct >= Levels.MASTERED) {
+            if (onNextLevel != null && pct >= Levels.MASTERED && !practice) {
                 OutlinedButton(onClick = onNextLevel, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Night.gold), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.gold)) {
                     Text(tr("On to", "Naar") + " ${"★".repeat(level + 1)}", style = MaterialTheme.typography.labelLarge)
                 }

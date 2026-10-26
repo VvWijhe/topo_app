@@ -89,15 +89,18 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
         store.edit { p ->
             val awards = mutableListOf<Award>()
             val stars = level.coerceIn(1, Levels.all.size)
+            // Een ronde van 10 vragen (niet het hele niveau) is oefenen: punten en dagreeks wel,
+            // maar het niveau telt pas als gehaald als je het hele niveau speelt.
+            val practice = !wholeLevel
             val bestKey = intPreferencesKey(Keys.BEST_PREFIX + Progress.key(region, topicId, level))
             val old = p[bestKey]
-            val record = old == null || percent > old
+            val record = !practice && (old == null || percent > old)
             if (record) p[bestKey] = percent
 
             // Basis: punten per goed antwoord, meer op hogere niveaus
             if (correctFirstTry > 0) awards += Award(Award.Kind.ANSWERS, correctFirstTry * Points.perAnswer(stars), correctFirstTry)
-            if (percent == 100) awards += Award(Award.Kind.PERFECT, 50 * stars)
-            when {
+            if (percent == 100) awards += Award(Award.Kind.PERFECT, (if (practice) 20 else 50) * stars)
+            if (!practice) when {
                 percent >= Levels.MASTERED && (old == null || old < Levels.MASTERED) -> awards += Award(Award.Kind.MASTERED, 100 * stars)
                 record && old != null -> awards += Award(Award.Kind.RECORD, 20 * stars)
             }
@@ -119,7 +122,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
             p[Keys.ROUNDS] = (p[Keys.ROUNDS] ?: 0) + 1
             p[Keys.LAST_PLAYED] = "${region.name}|$topicId|$level"
             val (before, after) = applyDayAndPoints(p, awards)
-            outcome = RoundOutcome(record, awards, before, after, cascaded)
+            outcome = RoundOutcome(record, awards, before, after, cascaded, practice)
         }
         return outcome
     }
@@ -245,6 +248,8 @@ data class RoundOutcome(
     val pointsAfter: Int,
     /** Lagere niveaus die door deze ronde ook als gehaald tellen. */
     val cascadedLevels: List<Int>,
+    /** Oefenronde (10 vragen): telde niet mee voor het niveau. */
+    val practice: Boolean = false,
 ) {
     val gained: Int get() = pointsAfter - pointsBefore
     val rankUp: Boolean get() = Ranks.of(pointsAfter) != Ranks.of(pointsBefore)
