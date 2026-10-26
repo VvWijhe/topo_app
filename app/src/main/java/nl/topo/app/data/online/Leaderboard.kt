@@ -149,6 +149,18 @@ class OfflineLeaderboard(private val store: DataStore<Preferences>, private val 
 
     override suspend fun flush(): Int = 0 // niets te versturen zonder online verbinding
 
+    /** Alle eigen resultaten (ook al verstuurde). */
+    suspend fun results(): List<ScoreSubmission> = decode(store.data.first()[allKey])
+
+    suspend fun pendingNow(): List<ScoreSubmission> = decode(store.data.first()[pendingKey])
+
+    /** Haal verstuurde resultaten uit de wachtrij. */
+    suspend fun markSent(sent: List<ScoreSubmission>) {
+        if (sent.isEmpty()) return
+        val keys = sent.map { it.day to it.difficulty }.toSet()
+        store.edit { p -> p[pendingKey] = json.encodeToString(ser, decode(p[pendingKey]).filterNot { (it.day to it.difficulty) in keys }) }
+    }
+
     override suspend fun deleteMyData() {
         store.edit { it.remove(pendingKey) }
     }

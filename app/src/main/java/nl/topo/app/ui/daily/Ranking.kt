@@ -161,7 +161,7 @@ private fun EntryRow(rank: Int, e: LeaderboardEntry, myName: String) {
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                (e.nickname.ifBlank { myName }.ifBlank { tr("You", "Jij") }) + if (e.isMe) tr(" (you)", " (jij)") else "",
+                (if (e.isMe) e.nickname.ifBlank { myName }.ifBlank { tr("You", "Jij") } else e.nickname.ifBlank { tr("Anonymous", "Anoniem") }) + if (e.isMe) tr(" (you)", " (jij)") else "",
                 style = MaterialTheme.typography.titleSmall, color = Night.text,
             )
             Text(tr("${e.found}/${e.total} found · ${formatTime(e.timeMs)}", "${e.found}/${e.total} gevonden · ${formatTime(e.timeMs)}"),

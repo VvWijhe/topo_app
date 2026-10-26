@@ -78,6 +78,8 @@ fun SettingsScreen() {
     var confirmReset by remember { mutableStateOf(false) }
     var resetDone by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf(false) }
+    var confirmDeleteOnline by remember { mutableStateOf(false) }
+    var onlineDeleted by remember { mutableStateOf(false) }
     val nickname by app.profile.nickname.collectAsStateWithLifecycle("")
     val pending by app.leaderboard.pending.collectAsStateWithLifecycle(emptyList())
     val version = remember {
@@ -147,6 +149,14 @@ fun SettingsScreen() {
                     tr("Not switched on yet. ${pending.size} result(s) saved for later.", "Staat nog niet aan. ${pending.size} uitslag(en) bewaard voor later."),
                     tint = Night.muted)
             }
+            if (app.leaderboard.isOnline) {
+                Divider()
+                SettingRow(
+                    Icons.Rounded.DeleteForever, tr("Delete my online data", "Mijn online gegevens wissen"),
+                    if (onlineDeleted) tr("Deleted", "Gewist") else tr("Removes your results from the online ranking", "Haalt je uitslagen uit de online ranglijst"),
+                    tint = Night.danger, onClick = { confirmDeleteOnline = true },
+                )
+            }
         }
 
         Section(tr("Progress", "Voortgang")) {
@@ -181,6 +191,21 @@ fun SettingsScreen() {
     }
 
     if (editName) NicknameDialog(onDismiss = { editName = false })
+    if (confirmDeleteOnline) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteOnline = false },
+            containerColor = Night.surfaceHigh,
+            title = { Text(tr("Delete online data?", "Online gegevens wissen?"), style = MaterialTheme.typography.headlineSmall) },
+            text = { Text(tr("All your results disappear from the online ranking. Your progress on this phone stays.", "Al je uitslagen verdwijnen uit de online ranglijst. Je voortgang op deze telefoon blijft."), color = Night.muted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteOnline = false
+                    scope.launch { app.leaderboard.deleteMyData(); onlineDeleted = true }
+                }) { Text(tr("Delete", "Wissen"), color = Night.danger) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteOnline = false }) { Text(tr("Cancel", "Annuleren"), color = Night.text) } },
+        )
+    }
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },

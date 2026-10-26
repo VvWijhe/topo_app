@@ -29,6 +29,8 @@ class MainActivity : ComponentActivity() {
         )
         val container = (application as TopoApplication).container
         lifecycleScope.launch { container.progress.migrateToFiveLevels() }
+        // Uitslagen die nog in de wachtrij staan (bijv. gespeeld zonder internet) alsnog versturen.
+        lifecycleScope.launch { runCatching { container.leaderboard.flush() } }
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle(Settings())
             CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast) {

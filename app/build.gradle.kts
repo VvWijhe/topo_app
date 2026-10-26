@@ -5,6 +5,24 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Firebase (online ranglijst): de gegevens komen uit app/google-services.json, als die er is.
+// Zonder bestand blijft de app offline. Zelf inlezen i.p.v. de google-services-plugin,
+// zodat ook de dev-versie (ander pakket-ID) hetzelfde Firebase-project gebruikt.
+val firebaseConfig: Map<String, String> = runCatching {
+    @Suppress("UNCHECKED_CAST")
+    val root = groovy.json.JsonSlurper().parse(file("google-services.json")) as Map<String, Any?>
+    val info = root["project_info"] as Map<String, Any?>
+    val clients = root["client"] as List<Map<String, Any?>>
+    val client = clients.firstOrNull {
+        ((it["client_info"] as Map<*, *>)["android_client_info"] as Map<*, *>)["package_name"] == "nl.vanwijhe.lodestar"
+    } ?: clients.first()
+    mapOf(
+        "projectId" to info["project_id"] as String,
+        "appId" to (client["client_info"] as Map<*, *>)["mobilesdk_app_id"] as String,
+        "apiKey" to ((client["api_key"] as List<Map<*, *>>).first()["current_key"] as String),
+    )
+}.getOrDefault(emptyMap())
+
 // Versie: <major>.<aantal commits sinds de basis>. Elke update krijgt zo automatisch een hoger nummer.
 // Voor 1.0: zet topo.versionMajor=1 en topo.versionBase op het aantal commits van dat moment (gradle.properties).
 val commitCount: Int = runCatching {
@@ -24,6 +42,9 @@ android {
         targetSdk = 36
         versionCode = commitCount
         versionName = topoVersionName
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firebaseConfig["projectId"].orEmpty()}\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\"${firebaseConfig["appId"].orEmpty()}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebaseConfig["apiKey"].orEmpty()}\"")
     }
 
     // Vaste sleutel, zodat elke nieuwe versie over de vorige heen te installeren is (met behoud van voortgang).
@@ -69,6 +90,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -88,6 +110,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.kotlinx.coroutines.play.services)
     debugImplementation(libs.androidx.ui.tooling)
 }
 

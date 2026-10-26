@@ -8,6 +8,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import nl.topo.app.data.geo.GeoRepository
 import nl.topo.app.data.prefs.ProgressRepository
 import nl.topo.app.data.prefs.SettingsRepository
+import nl.topo.app.data.online.FirebaseLeaderboard
 import nl.topo.app.data.online.LeaderboardService
 import nl.topo.app.data.online.OfflineLeaderboard
 import nl.topo.app.data.online.PlayerProfile
@@ -21,8 +22,10 @@ class AppContainer(context: Context) {
     val progress = ProgressRepository(store)
     val geo = GeoRepository(context.assets)
     val profile = PlayerProfile(store)
-    /** Nu offline; later te vervangen door een Firebase-versie met dezelfde functies. */
-    val leaderboard: LeaderboardService = OfflineLeaderboard(store, profile)
+    private val offline = OfflineLeaderboard(store, profile)
+    /** Online (Firebase) als die is ingesteld, anders alleen op de telefoon. */
+    val leaderboard: LeaderboardService =
+        FirebaseLeaderboard.firebaseApp(context)?.let { FirebaseLeaderboard(offline, profile, it) } ?: offline
 }
 
 class TopoApplication : Application() {
