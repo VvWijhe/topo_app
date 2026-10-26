@@ -13,6 +13,8 @@ jobs:
     env:
       # Wachtwoord van de Play Store upload-sleutel (Settings → Secrets → Actions). Zonder secret: alleen de APK.
       UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+      # Sleutel van het Play Console-serviceaccount (JSON). Zonder secret: geen automatische upload.
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     # Vast image: daarop staat de Android SDK al geïnstalleerd (ANDROID_HOME).
     runs-on: ubuntu-24.04
     steps:
@@ -77,3 +79,15 @@ jobs:
           files: |
             app/build/outputs/apk/debug/app-debug.apk
             ${{ env.AAB }}
+
+      # Elke nieuwe versie automatisch naar de interne test in de Play Store.
+      - name: Uploaden naar Play Store (interne test)
+        if: env.PLAY_JSON != '' && env.AAB != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: nl.vanwijhe.lodestar
+          releaseFiles: ${{ env.AAB }}
+          releaseName: Lodestar ${{ env.VERSION }}
+          track: internal
+          status: completed
