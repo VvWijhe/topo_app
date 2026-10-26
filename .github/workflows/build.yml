@@ -50,7 +50,7 @@ jobs:
         if: failure()
         run: |
           # Kotlin-fouten ("e: ...") en Gradle-meldingen als annotaties, zodat ze bovenaan de run staan.
-          grep -E "^e: |error:|What went wrong|Could not|> " build.log | head -40 | while IFS= read -r line; do
+          { grep -E "^e: " build.log; grep -E -A2 "What went wrong" build.log; } | head -40 | while IFS= read -r line; do
             echo "::error::${line//%/%25}"
           done
           echo '## Bouwfouten' >> "$GITHUB_STEP_SUMMARY"
