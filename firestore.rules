@@ -18,5 +18,20 @@ service cloud.firestore {
         && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
       allow delete: if request.auth != null && resource.data.playerId == request.auth.uid;
     }
+    // Vriendcodes: opzoeken op code mag (geen lijst opvragen); alleen je eigen code maken/wijzigen/wissen.
+    match /codes/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && code.size() == 6
+        && request.resource.data.keys().hasOnly(['uid', 'nickname'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'nickname'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
   }
 }

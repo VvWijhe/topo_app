@@ -93,7 +93,7 @@ class FirebaseLeaderboard(
         sent.size
     }
 
-    override suspend fun ranking(day: Long, difficulty: String, period: Period): List<LeaderboardEntry> {
+    override suspend fun ranking(day: Long, difficulty: String, period: Period, only: Set<String>?): List<LeaderboardEntry> {
         flush()
         return runCatching {
             withTimeout(10_000) {
@@ -134,7 +134,8 @@ class FirebaseLeaderboard(
             }
         }.map { online ->
             // Eigen uitslag nog niet online (bijv. nog in de wachtrij)? Dan toch tonen.
-            if (online.any { it.isMe }) online else online + local.ranking(day, difficulty, period)
+            val all = if (online.any { it.isMe }) online else online + local.ranking(day, difficulty, period)
+            if (only == null) all else all.filter { it.isMe || it.playerId in only }
         }.getOrElse {
             Log.w(TAG, "Ranglijst ophalen mislukt; eigen resultaten tonen", it)
             _problem.value = describe(it)
@@ -147,13 +148,62 @@ class FirebaseLeaderboard(
             withTimeout(15_000) {
                 val me = uid()
                 scores.whereEqualTo("playerId", me).get().await().documents.forEach { it.reference.delete().await() }
+                profile.friendCode()?.let { codes.document(it).delete().await() }
             }
         }
+        profile.setFriendCode(null)
         local.deleteMyData()
+    }
+
+    // ---------------- vrienden ----------------
+
+    private val codes get() = db.collection("codes")
+
+    override suspend fun myFriendCode(): String? = runCatching {
+        withTimeout(15_000) {
+            profile.friendCode()?.let { return@withTimeout it }
+            val me = uid()
+            val name = profile.currentNickname()
+            var made: String? = null
+            repeat(8) {
+                if (made != null) return@repeat
+                val code = (1..CODE_LENGTH).map { CODE_CHARS.random() }.joinToString("")
+                val ref = codes.document(code)
+                if (!ref.get().await().exists()) {
+                    ref.set(mapOf("uid" to me, "nickname" to name)).await()
+                    made = code
+                }
+            }
+            made?.also { profile.setFriendCode(it) }
+        }
+    }.onFailure { Log.w(TAG, "Vriendcode maken mislukt", it); _problem.value = describe(it) }.getOrNull()
+
+    override suspend fun findFriend(code: String): Result<Friend> = runCatching {
+        val clean = code.trim().uppercase().replace(" ", "")
+        require(clean.length == CODE_LENGTH) { "code" }
+        withTimeout(10_000) {
+            uid()
+            val d = codes.document(clean).get().await()
+            if (!d.exists()) throw NoSuchElementException("not found")
+            Friend(d.getString("uid").orEmpty(), clean, d.getString("nickname").orEmpty())
+        }
+    }
+
+    override suspend fun syncNickname() {
+        runCatching {
+            withTimeout(10_000) {
+                val code = profile.friendCode() ?: return@withTimeout
+                uid()
+                codes.document(code).update("nickname", profile.currentNickname()).await()
+            }
+        }
     }
 
     companion object {
         private const val TAG = "Ranglijst"
+        private const val CODE_LENGTH = 6
+        /** Zonder verwarrende tekens (0/O, 1/I/L). */
+        private const val CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
         /** Start Firebase met de gegevens uit google-services.json (via BuildConfig); null als die ontbreken. */
         fun firebaseApp(context: Context): FirebaseApp? {

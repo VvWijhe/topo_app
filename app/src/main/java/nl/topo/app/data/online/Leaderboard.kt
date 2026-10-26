@@ -47,6 +47,23 @@ data class LeaderboardEntry(
 
 enum class Period { DAY, WEEK }
 
+/** Een vriend: zijn speler-ID, vriendcode en bijnaam (zoals bij het toevoegen). */
+@Serializable
+data class Friend(val playerId: String, val code: String, val nickname: String)
+
+/** Je vriendenlijst, alleen op deze telefoon (volgen: je vriend hoeft jou niet terug toe te voegen). */
+class FriendsStore(private val store: DataStore<Preferences>) {
+    private val key = stringPreferencesKey("online/friends")
+    private val json = Json { ignoreUnknownKeys = true }
+    private val ser = ListSerializer(Friend.serializer())
+    private fun decode(s: String?) = s?.let { runCatching { json.decodeFromString(ser, it) }.getOrNull() }.orEmpty()
+
+    val friends: Flow<List<Friend>> = store.data.map { decode(it[key]) }
+
+    suspend fun add(f: Friend) = store.edit { p -> p[key] = json.encodeToString(ser, decode(p[key]).filterNot { it.playerId == f.playerId } + f) }
+    suspend fun remove(playerId: String) = store.edit { p -> p[key] = json.encodeToString(ser, decode(p[key]).filterNot { it.playerId == playerId }) }
+}
+
 /**
  * De ranglijst. Nu is er alleen [OfflineLeaderboard]; een online versie (Firebase)
  * implementeert dezelfde functies, zodat de schermen niet hoeven te veranderen.
@@ -58,8 +75,20 @@ interface LeaderboardService {
     /** Sla een resultaat op (offline: in de wachtrij; online: versturen). */
     suspend fun submit(s: ScoreSubmission)
 
-    /** Ranglijst: [Period.DAY] voor één dag en moeilijkheid, [Period.WEEK] = totaal van de week (beide moeilijkheden). */
-    suspend fun ranking(day: Long, difficulty: String, period: Period): List<LeaderboardEntry>
+    /**
+     * Ranglijst: [Period.DAY] voor één dag en moeilijkheid, [Period.WEEK] = totaal van de week (beide moeilijkheden).
+     * Met [only] alleen die spelers (plus jijzelf), bijv. je vrienden.
+     */
+    suspend fun ranking(day: Long, difficulty: String, period: Period, only: Set<String>? = null): List<LeaderboardEntry>
+
+    /** Jouw vriendcode (online; maakt er een aan als je die nog niet hebt). Null als het niet lukt. */
+    suspend fun myFriendCode(): String?
+
+    /** Zoek een speler op zijn vriendcode. */
+    suspend fun findFriend(code: String): Result<Friend>
+
+    /** Bijnaam ook bij je vriendcode bijwerken. */
+    suspend fun syncNickname() {}
 
     /** Nog niet verstuurde resultaten. */
     val pending: Flow<List<ScoreSubmission>>
@@ -100,6 +129,11 @@ class PlayerProfile(private val store: DataStore<Preferences>) {
 
     suspend fun currentNickname(): String = store.data.first()[nameKey].orEmpty()
 
+    private val codeKey = stringPreferencesKey("online/friendCode")
+    val friendCodeFlow: Flow<String?> = store.data.map { it[codeKey] }
+    suspend fun friendCode(): String? = store.data.first()[codeKey]
+    suspend fun setFriendCode(code: String?) { store.edit { if (code == null) it.remove(codeKey) else it[codeKey] = code } }
+
     suspend fun setNickname(name: String) {
         val clean = name.trim().replace(Regex("\\s+"), " ").take(MAX_NAME)
         store.edit { it[nameKey] = clean }
@@ -138,7 +172,10 @@ class OfflineLeaderboard(private val store: DataStore<Preferences>, private val 
         }
     }
 
-    override suspend fun ranking(day: Long, difficulty: String, period: Period): List<LeaderboardEntry> {
+    override suspend fun myFriendCode(): String? = null
+    override suspend fun findFriend(code: String): Result<Friend> = Result.failure(IllegalStateException("offline"))
+
+    override suspend fun ranking(day: Long, difficulty: String, period: Period, only: Set<String>?): List<LeaderboardEntry> {
         val me = profile.playerId()
         val name = profile.currentNickname()
         val all = decode(store.data.first()[allKey])

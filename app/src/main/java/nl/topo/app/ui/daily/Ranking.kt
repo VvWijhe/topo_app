@@ -18,6 +18,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import nl.topo.app.data.online.Friend
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,10 +83,14 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
     val nickname by app.profile.nickname.collectAsStateWithLifecycle("")
     val pending by app.leaderboard.pending.collectAsStateWithLifecycle(emptyList())
     val problem by app.leaderboard.problem.collectAsStateWithLifecycle(null)
-    val entries by produceState<List<LeaderboardEntry>?>(null, day, diff, period, refreshKey, nickname) {
-        value = app.leaderboard.ranking(day, diff.name, period)
+    var friendsOnly by rememberSaveable { mutableStateOf(false) }
+    val friends by app.friends.friends.collectAsStateWithLifecycle(emptyList())
+    val only = if (friendsOnly) friends.map { it.playerId }.toSet() else null
+    val entries by produceState<List<LeaderboardEntry>?>(null, day, diff, period, refreshKey, nickname, only) {
+        value = app.leaderboard.ranking(day, diff.name, period, only)
     }
     var askName by remember { mutableStateOf(false) }
+    var showFriends by remember { mutableStateOf(false) }
 
     NightCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -105,10 +118,32 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
                 Pill(tr("Hard", "Moeilijk"), diff == Difficulty.HARD, Night.ember) { diff = Difficulty.HARD }
             }
         }
+        if (app.leaderboard.isOnline) {
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Pill(tr("Everyone", "Iedereen"), !friendsOnly) { friendsOnly = false }
+                Pill(tr("Friends", "Vrienden") + if (friends.isNotEmpty()) " ${friends.size}" else "", friendsOnly) {
+                    if (friends.isEmpty()) showFriends = true else friendsOnly = true
+                }
+                Spacer(Modifier.weight(1f))
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).clickable { showFriends = true }.padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.PersonAdd, null, tint = Night.glow, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(tr("Add", "Toevoegen"), style = MaterialTheme.typography.labelMedium, color = Night.glow)
+                }
+            }
+        }
         Spacer(Modifier.height(10.dp))
         val list = entries
         when {
             list == null -> Unit
+            friendsOnly && list.none { !it.isMe } -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(tr("None of your friends has a result here yet.", "Nog geen van je vrienden heeft hier een uitslag."), style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                list.forEachIndexed { i, e -> EntryRow(i + 1, e, nickname) }
+            }
             list.isEmpty() -> Text(
                 if (period == Period.DAY) tr("No result yet. Finish today's challenge to get on the list.", "Nog geen uitslag. Rond de uitdaging van vandaag af om op de lijst te komen.")
                 else tr("No results this week yet.", "Deze week nog geen uitslagen."),
@@ -151,6 +186,7 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
         }
     }
     if (askName) NicknameDialog(onDismiss = { askName = false })
+    if (showFriends) FriendsDialog(onDismiss = { showFriends = false })
 }
 
 @Composable
@@ -217,10 +253,112 @@ fun NicknameDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(enabled = text.isNotBlank(), onClick = { scope.launch { app.profile.setNickname(text); onDismiss() } }) {
+            TextButton(enabled = text.isNotBlank(), onClick = { scope.launch { app.profile.setNickname(text); app.scope.launch { app.leaderboard.syncNickname() }; onDismiss() } }) {
                 Text(tr("Save", "Opslaan"), color = Night.glow)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuleren"), color = Night.text) } },
+    )
+}
+
+
+/** Vrienden: je eigen code delen, een code invoeren, en je lijst beheren. */
+@Composable
+fun FriendsDialog(onDismiss: () -> Unit) {
+    val app = LocalAppContainer.current
+    val lang = LocalLang.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val friends by app.friends.friends.collectAsStateWithLifecycle(emptyList())
+    val myCode by produceState<String?>(null) { value = app.leaderboard.myFriendCode() ?: "" }
+    var input by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun add() {
+        if (busy) return
+        busy = true; message = null
+        scope.launch {
+            val r = app.leaderboard.findFriend(input)
+            r.onSuccess { f ->
+                when {
+                    f.code == myCode -> message = lang.t("That's your own code.", "Dat is je eigen code.")
+                    friends.any { it.playerId == f.playerId } -> message = lang.t("Already in your list.", "Staat al in je lijst.")
+                    else -> { app.friends.add(f); input = ""; message = lang.t("Added ${f.nickname.ifBlank { "your friend" }}!", "${f.nickname.ifBlank { "Je vriend" }} toegevoegd!") }
+                }
+            }.onFailure {
+                message = if (it is NoSuchElementException || it is IllegalArgumentException) lang.t("No player with that code.", "Geen speler met die code.")
+                else lang.t("Couldn't reach the server. Try again.", "Geen verbinding. Probeer het nog eens.")
+            }
+            busy = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Night.surfaceHigh,
+        title = { Text(tr("Friends", "Vrienden"), style = MaterialTheme.typography.headlineSmall) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Eyebrow(tr("Your friend code", "Jouw vriendcode"))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (val c = myCode) {
+                        null -> CircularProgressIndicator(Modifier.size(22.dp), color = Night.glow, strokeWidth = 2.dp)
+                        "" -> Text(tr("Not available right now (no internet?)", "Nu niet beschikbaar (geen internet?)"), color = Night.muted, style = MaterialTheme.typography.bodySmall)
+                        else -> {
+                            Text(c, style = MaterialTheme.typography.headlineMedium, color = Night.gold, fontWeight = FontWeight.Bold, letterSpacing = 4.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = {
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, lang.t(
+                                        "Add me as a friend in Lodestar: $c",
+                                        "Voeg me toe als vriend in Lodestar: $c",
+                                    ))
+                                }
+                                context.startActivity(android.content.Intent.createChooser(send, null))
+                            }) { Icon(Icons.Rounded.Share, tr("Share", "Delen"), tint = Night.glow) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Eyebrow(tr("Add a friend", "Vriend toevoegen"))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = input, onValueChange = { if (it.length <= 8) input = it.uppercase() },
+                        singleLine = true, placeholder = { Text(tr("Their code", "Hun code"), color = Night.faint) },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { add() }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Night.glow, unfocusedBorderColor = Night.outline,
+                            cursorColor = Night.glow, focusedTextColor = Night.text, unfocusedTextColor = Night.text,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(enabled = input.trim().length >= 6 && !busy, onClick = { add() }) { Text(tr("Add", "Toevoegen"), color = Night.glow) }
+                }
+                message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Night.muted) }
+                if (friends.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Eyebrow(tr("Your friends", "Je vrienden"))
+                    friends.forEach { f ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(f.nickname.ifBlank { tr("Anonymous", "Anoniem") }, style = MaterialTheme.typography.titleSmall, color = Night.text)
+                                Text(f.code, style = MaterialTheme.typography.bodySmall, color = Night.faint)
+                            }
+                            IconButton(onClick = { scope.launch { app.friends.remove(f.playerId) } }) {
+                                Icon(Icons.Rounded.Close, tr("Remove", "Verwijderen"), tint = Night.muted)
+                            }
+                        }
+                    }
+                }
+                Text(
+                    tr("You see a friend once you've added their code; they see you when they add yours.", "Je ziet een vriend in je lijst zodra je zijn code hebt toegevoegd; hij ziet jou als hij jouw code toevoegt."),
+                    style = MaterialTheme.typography.bodySmall, color = Night.faint,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Done", "Klaar"), color = Night.glow) } },
     )
 }

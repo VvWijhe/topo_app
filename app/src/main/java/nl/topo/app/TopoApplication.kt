@@ -9,6 +9,7 @@ import nl.topo.app.data.geo.GeoRepository
 import nl.topo.app.data.prefs.ProgressRepository
 import nl.topo.app.data.prefs.SettingsRepository
 import nl.topo.app.data.online.FirebaseLeaderboard
+import nl.topo.app.data.online.FriendsStore
 import nl.topo.app.data.online.LeaderboardService
 import nl.topo.app.data.online.OfflineLeaderboard
 import nl.topo.app.data.online.PlayerProfile
@@ -24,6 +25,7 @@ class AppContainer(context: Context) {
     val progress = ProgressRepository(store)
     val geo = GeoRepository(context.assets)
     val profile = PlayerProfile(store)
+    val friends = FriendsStore(store)
     private val offline = OfflineLeaderboard(store, profile)
     /** Online (Firebase) als die is ingesteld, anders alleen op de telefoon. */
     val leaderboard: LeaderboardService =
