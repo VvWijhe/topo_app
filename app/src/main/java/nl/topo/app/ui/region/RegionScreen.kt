@@ -120,7 +120,6 @@ private fun LevelLegend(region: Region, countryCount: Int?) {
                     if (k == n) tr("all $n", "alle $n") else tr("$k of $n", "$k van $n")
                 } ?: region.levelScope[i].text
                 Text(scope, style = MaterialTheme.typography.bodySmall, color = Night.muted, maxLines = 2)
-                Text(lv.how.text, style = MaterialTheme.typography.bodySmall, color = Night.faint, maxLines = 2)
             }
         }
     }
