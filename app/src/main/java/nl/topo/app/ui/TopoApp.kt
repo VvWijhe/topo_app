@@ -13,6 +13,8 @@ import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
 import nl.topo.app.data.daily.Difficulty
+import nl.topo.app.data.puzzle.PuzzleKind
+import nl.topo.app.ui.puzzle.PuzzleScreen
 import nl.topo.app.ui.daily.DailyPlayScreen
 import nl.topo.app.ui.daily.DailyScreen
 import androidx.compose.material3.Icon
@@ -59,6 +61,8 @@ object Routes {
     const val QUIZ = "quiz/{region}/{topic}/{level}"
     const val DAILY = "daily"
     const val DAILY_PLAY = "daily/{difficulty}"
+    const val PUZZLE = "puzzle/{kind}/{mode}"
+    fun puzzle(kind: PuzzleKind, daily: Boolean) = "puzzle/${kind.name}/${if (daily) "daily" else "practice"}"
     fun dailyPlay(d: Difficulty) = "daily/${d.name}"
     fun region(id: RegionId) = "region/${id.name}"
     fun quiz(id: RegionId, topic: String, level: Int) = "quiz/${id.name}/$topic/$level"
@@ -110,11 +114,19 @@ fun TopoApp() {
                     }
                 }
                 composable(Routes.DAILY) {
-                    Box(Modifier.statusBarsPadding()) { DailyScreen(onPlay = { nav.navigate(Routes.dailyPlay(it)) }) }
+                    Box(Modifier.statusBarsPadding()) { DailyScreen(onPlay = { nav.navigate(Routes.dailyPlay(it)) }, onPuzzle = { k, d -> nav.navigate(Routes.puzzle(k, d)) }) }
                 }
                 composable(Routes.DAILY_PLAY, arguments = listOf(navArgument("difficulty") { type = NavType.StringType })) { e ->
                     val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
                     Box(Modifier.statusBarsPadding()) { DailyPlayScreen(d, onBack = { nav.popBackStack() }) }
+                }
+                composable(
+                    Routes.PUZZLE,
+                    arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("mode") { type = NavType.StringType }),
+                ) { e ->
+                    val k = runCatching { PuzzleKind.valueOf(e.arguments?.getString("kind") ?: "ROUTE") }.getOrDefault(PuzzleKind.ROUTE)
+                    val daily = e.arguments?.getString("mode") == "daily"
+                    Box(Modifier.statusBarsPadding()) { PuzzleScreen(k, daily, onBack = { nav.popBackStack() }) }
                 }
                 composable(Routes.SETTINGS) { Box(Modifier.statusBarsPadding()) { SettingsScreen() } }
                 composable(Routes.REGION, arguments = listOf(navArgument("region") { type = NavType.StringType })) { e ->

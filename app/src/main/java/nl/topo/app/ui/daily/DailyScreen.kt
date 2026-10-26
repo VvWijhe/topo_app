@@ -25,6 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import nl.topo.app.data.puzzle.PuzzleKind
+import nl.topo.app.data.prefs.PuzzleState
+import androidx.compose.material.icons.rounded.Route
+import androidx.compose.material.icons.rounded.TravelExplore
 import nl.topo.app.data.online.ScoreSubmission
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -60,7 +64,7 @@ import java.time.format.FormatStyle
 
 /** Tab met de twee uitdagingen van vandaag. */
 @Composable
-fun DailyScreen(onPlay: (Difficulty) -> Unit) {
+fun DailyScreen(onPlay: (Difficulty) -> Unit, onPuzzle: (PuzzleKind, Boolean) -> Unit = { _, _ -> }) {
     val app = LocalAppContainer.current
     val lang = LocalLang.current
     val world by produceState<WorldMap?>(null) { value = app.geo.world() }
@@ -68,6 +72,8 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
     val easyState by app.progress.daily(day, Difficulty.EASY.name).collectAsStateWithLifecycle(DailyState())
     val hardState by app.progress.daily(day, Difficulty.HARD.name).collectAsStateWithLifecycle(DailyState())
     var rankingKey by remember { mutableIntStateOf(0) }
+    val routeState by app.progress.puzzle(day, PuzzleKind.ROUTE.name).collectAsStateWithLifecycle(PuzzleState())
+    val mysteryState by app.progress.puzzle(day, PuzzleKind.MYSTERY.name).collectAsStateWithLifecycle(PuzzleState())
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -109,6 +115,17 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
             }
         }
         RankingCard(day = day, refreshKey = Triple(easyState, hardState, rankingKey))
+        Text(tr("Puzzles", "Puzzels"), style = MaterialTheme.typography.headlineSmall, color = Night.text, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        PuzzleCard(
+            Icons.Rounded.Route, tr("Route", "Route"),
+            tr("Travel over land between two countries via the fewest countries in between.", "Reis over land tussen twee landen, via zo min mogelijk landen ertussen."),
+            routeState, onDaily = { onPuzzle(PuzzleKind.ROUTE, true) }, onPractice = { onPuzzle(PuzzleKind.ROUTE, false) },
+        )
+        PuzzleCard(
+            Icons.Rounded.TravelExplore, tr("Mystery country", "Mysterieland"),
+            tr("Guess the country. Each guess tells you how far away it is and in which direction.", "Raad het land. Elke gok zegt hoe ver het is en in welke richting."),
+            mysteryState, onDaily = { onPuzzle(PuzzleKind.MYSTERY, true) }, onPractice = { onPuzzle(PuzzleKind.MYSTERY, false) },
+        )
         Text(
             tr(
                 "Everyone gets the same challenges today. The map shows no borders: countries appear as you name them.",
@@ -123,6 +140,40 @@ private fun nextIn(lang: nl.topo.app.data.i18n.Lang): String {
     val now = LocalDateTime.now()
     val mins = java.time.Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay()).toMinutes()
     return lang.t("new ones in ${mins / 60}h ${mins % 60}m", "nieuwe over ${mins / 60}u ${mins % 60}m")
+}
+
+@Composable
+private fun PuzzleCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, about: String, s: PuzzleState, onDaily: () -> Unit, onPractice: () -> Unit) {
+    val lang = LocalLang.current
+    NightCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Night.gold, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Night.text, modifier = Modifier.weight(1f))
+            if (s.finished) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = if (s.solved) Night.glow else Night.muted, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("+${formatPoints(s.points, lang)}", style = MaterialTheme.typography.labelMedium, color = Night.gold)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(about, style = MaterialTheme.typography.bodySmall, color = Night.muted)
+        Spacer(Modifier.height(12.dp))
+        GlowButton(
+            when {
+                s.finished -> tr("Today's puzzle: view result", "Puzzel van vandaag: uitslag")
+                s.guesses.isNotEmpty() -> tr("Continue today's puzzle", "Verder met de puzzel van vandaag")
+                else -> tr("Today's puzzle", "Puzzel van vandaag")
+            },
+            onDaily, Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.material3.OutlinedButton(
+            onClick = onPractice, modifier = Modifier.fillMaxWidth(),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Night.outline),
+            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Night.text),
+        ) { Text(tr("Practise (half points)", "Oefenen (halve punten)"), style = MaterialTheme.typography.labelLarge) }
+    }
 }
 
 @Composable

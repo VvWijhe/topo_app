@@ -33,6 +33,8 @@ data class Country(
     val bounds: Rect,
     /** Onafhankelijke staat (Groenland, Westelijke Sahara … niet). */
     val sovereign: Boolean,
+    /** Hoofdstad als [breedte, lengte] in graden. */
+    val capitalLatLon: List<Double>? = null,
 ) {
     fun name(lang: Lang): String = names[lang]
     fun capital(lang: Lang): String? = capitals?.get(lang)

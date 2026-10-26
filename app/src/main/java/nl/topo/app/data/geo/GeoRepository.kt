@@ -116,6 +116,7 @@ class GeoRepository(private val assets: AssetManager) {
                     iso2 = c.a2,
                     capitals = c.cap?.let { nl -> Txt(en = c.ce ?: nl, nl = nl) },
                     capitalPos = c.cll?.let { proj.project(it[0], it[1]) },
+                    capitalLatLon = c.cll,
                     population = c.pop,
                     areaKm2 = c.area,
                     continents = c.cont.mapNotNull(Continent::of).sortedBy { primaryOrder(code, it) },

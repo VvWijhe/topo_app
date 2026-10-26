@@ -201,6 +201,52 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
         return outcome
     }
 
+    // ---------------- puzzels ----------------
+
+    private fun puzzleKey(day: Long, kind: String, what: String) = "puzzle/$day/$kind/$what"
+
+    /** Stand van de puzzel van vandaag ([kind] = "ROUTE"/"MYSTERY"). */
+    fun puzzle(day: Long, kind: String): Flow<PuzzleState> = store.data.map { p ->
+        PuzzleState(
+            guesses = p[stringPreferencesKey(puzzleKey(day, kind, "guesses"))]?.split(',')?.filter { it.isNotEmpty() }.orEmpty(),
+            hints = p[intPreferencesKey(puzzleKey(day, kind, "hints"))] ?: 0,
+            finished = p[intPreferencesKey(puzzleKey(day, kind, "points"))] != null,
+            solved = p[intPreferencesKey(puzzleKey(day, kind, "solved"))] == 1,
+            points = p[intPreferencesKey(puzzleKey(day, kind, "points"))] ?: 0,
+        )
+    }
+
+    suspend fun savePuzzle(day: Long, kind: String, guesses: List<String>, hints: Int) {
+        store.edit { p ->
+            p[stringPreferencesKey(puzzleKey(day, kind, "guesses"))] = guesses.joinToString(",")
+            p[intPreferencesKey(puzzleKey(day, kind, "hints"))] = hints
+        }
+    }
+
+    /**
+     * Puzzel klaar: punten erbij (telt ook voor de dagreeks).
+     * [day] = null bij oefenen: dan wordt er niets bewaard behalve de punten.
+     */
+    suspend fun finishPuzzle(day: Long?, kind: String, solved: Boolean, points: Int): RoundOutcome {
+        var outcome = RoundOutcome(false, emptyList(), 0, 0, emptyList())
+        store.edit { p ->
+            if (day != null) {
+                val pointsKey = intPreferencesKey(puzzleKey(day, kind, "points"))
+                if (p[pointsKey] != null) return@edit // al afgerond
+            }
+            val awards = mutableListOf<Award>()
+            if (points > 0) awards += Award(Award.Kind.PUZZLE, points)
+            p[Keys.ROUNDS] = (p[Keys.ROUNDS] ?: 0) + 1
+            val (before, after) = applyDayAndPoints(p, awards)
+            if (day != null) {
+                p[intPreferencesKey(puzzleKey(day, kind, "points"))] = after - before
+                p[intPreferencesKey(puzzleKey(day, kind, "solved"))] = if (solved) 1 else 0
+            }
+            outcome = RoundOutcome(false, awards, before, after, emptyList())
+        }
+        return outcome
+    }
+
     /**
      * Eenmalig bij de overstap naar vijf niveaus: de oude ★★★★ (alles typen) heet nu ★★★★★.
      * Die score gaat naar ★★★★★ en telt ook voor de nieuwe ★★★★ (alles aantikken/kiezen).
@@ -238,7 +284,7 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
 
 /** Eén bonus na een ronde. [n]: aantal antwoorden, niveau of dagen, afhankelijk van [kind]. */
 data class Award(val kind: Kind, val points: Int, val n: Int = 0) {
-    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY, CHALLENGE_FOUND, CHALLENGE_DONE, HINTS, MISTAKES }
+    enum class Kind { ANSWERS, PERFECT, MASTERED, RECORD, CASCADE, DAILY, CHALLENGE_FOUND, CHALLENGE_DONE, HINTS, MISTAKES, PUZZLE }
 }
 
 data class RoundOutcome(
@@ -294,6 +340,14 @@ data class DailyState(
     val lost: Boolean = false,
     /** Gespeelde tijd (alleen terwijl het scherm open was). */
     val timeMs: Long = 0L,
+)
+
+data class PuzzleState(
+    val guesses: List<String> = emptyList(),
+    val hints: Int = 0,
+    val finished: Boolean = false,
+    val solved: Boolean = false,
+    val points: Int = 0,
 )
 
 /** Regels voor fouten in de dagelijkse uitdaging. */
