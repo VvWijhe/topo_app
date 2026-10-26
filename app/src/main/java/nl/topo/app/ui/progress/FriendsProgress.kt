@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.topo.app.data.content.Content
 import nl.topo.app.data.i18n.LocalLang
+import nl.topo.app.data.i18n.text
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.online.PlayerStats
 import nl.topo.app.data.prefs.Progress
