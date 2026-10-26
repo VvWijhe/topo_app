@@ -117,12 +117,19 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
                 list.forEachIndexed { i, e -> EntryRow(i + 1, e, nickname) }
             }
         }
-        if (nickname.isBlank()) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                tr("Choose a nickname →", "Kies een bijnaam →"), style = MaterialTheme.typography.labelLarge, color = Night.glow,
-                modifier = Modifier.clickable { askName = true }.padding(vertical = 4.dp),
-            )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { askName = true }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (nickname.isBlank()) {
+                Text(tr("Choose a nickname →", "Kies een bijnaam →"), style = MaterialTheme.typography.labelLarge, color = Night.glow)
+            } else {
+                Text(tr("Playing as ", "Je speelt als "), style = MaterialTheme.typography.bodySmall, color = Night.muted)
+                Text(nickname, style = MaterialTheme.typography.labelLarge, color = Night.text)
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Change", "Wijzigen"), style = MaterialTheme.typography.labelLarge, color = Night.glow)
+            }
         }
         if (!app.leaderboard.isOnline) {
             Spacer(Modifier.height(8.dp))
@@ -202,7 +209,7 @@ fun NicknameDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(enabled = text.isNotBlank(), onClick = { scope.launch { app.profile.setNickname(text) }; onDismiss() }) {
+            TextButton(enabled = text.isNotBlank(), onClick = { scope.launch { app.profile.setNickname(text); onDismiss() } }) {
                 Text(tr("Save", "Opslaan"), color = Night.glow)
             }
         },
