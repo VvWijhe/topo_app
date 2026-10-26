@@ -149,6 +149,7 @@ class FirebaseLeaderboard(
                 val me = uid()
                 scores.whereEqualTo("playerId", me).get().await().documents.forEach { it.reference.delete().await() }
                 profile.friendCode()?.let { codes.document(it).delete().await() }
+                players.document(me).delete().await()
             }
         }
         profile.setFriendCode(null)
@@ -188,6 +189,49 @@ class FirebaseLeaderboard(
             Friend(d.getString("uid").orEmpty(), clean, d.getString("nickname").orEmpty())
         }
     }
+
+    private val players get() = db.collection("players")
+
+    override suspend fun publishStats(stats: PlayerStats) {
+        runCatching {
+            withTimeout(15_000) {
+                val me = uid()
+                players.document(me).set(
+                    mapOf(
+                        "nickname" to stats.nickname.take(PlayerProfile.MAX_NAME),
+                        "points" to stats.points.coerceAtLeast(0),
+                        "streak" to stats.streak,
+                        "rounds" to stats.rounds,
+                        "mastered" to stats.mastered,
+                        "regions" to stats.regions,
+                        "updatedAt" to stats.updatedAt,
+                    ),
+                ).await()
+            }
+        }.onFailure { Log.w(TAG, "Voortgang delen mislukt", it) }
+    }
+
+    override suspend fun stats(playerIds: Collection<String>): Map<String, PlayerStats> = runCatching {
+        withTimeout(10_000) {
+            uid()
+            playerIds.mapNotNull { id ->
+                val d = runCatching { players.document(id).get().await() }.getOrNull() ?: return@mapNotNull null
+                if (!d.exists()) return@mapNotNull null
+                @Suppress("UNCHECKED_CAST")
+                val regions = (d.get("regions") as? Map<String, Any?>).orEmpty().mapValues { (it.value as? Number)?.toInt() ?: 0 }
+                id to PlayerStats(
+                    playerId = id,
+                    nickname = d.getString("nickname").orEmpty(),
+                    points = d.getLong("points")?.toInt() ?: 0,
+                    streak = d.getLong("streak")?.toInt() ?: 0,
+                    rounds = d.getLong("rounds")?.toInt() ?: 0,
+                    mastered = d.getLong("mastered")?.toInt() ?: 0,
+                    regions = regions,
+                    updatedAt = d.getLong("updatedAt") ?: 0L,
+                )
+            }.toMap()
+        }
+    }.getOrElse { Log.w(TAG, "Voortgang vrienden ophalen mislukt", it); emptyMap() }
 
     override suspend fun syncNickname() {
         runCatching {

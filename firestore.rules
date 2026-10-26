@@ -18,6 +18,16 @@ service cloud.firestore {
         && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
       allow delete: if request.auth != null && resource.data.playerId == request.auth.uid;
     }
+    // Voortgang per speler (voor vrienden): opvragen op ID mag, alleen je eigen schrijven.
+    match /players/{uid} {
+      allow get: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'points', 'streak', 'rounds', 'mastered', 'regions', 'updatedAt'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20
+        && request.resource.data.points is int && request.resource.data.points >= 0
+        && request.resource.data.regions is map;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
     // Vriendcodes: opzoeken op code mag (geen lijst opvragen); alleen je eigen code maken/wijzigen/wissen.
     match /codes/{code} {
       allow get: if request.auth != null;

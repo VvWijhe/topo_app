@@ -2,6 +2,8 @@ package nl.topo.app
 
 import android.os.Bundle
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -31,6 +33,21 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { container.progress.migrateToFiveLevels() }
         // Uitslagen die nog in de wachtrij staan (bijv. gespeeld zonder internet) alsnog versturen.
         lifecycleScope.launch { runCatching { container.leaderboard.flush() } }
+        // Voortgang delen met vrienden: na elke wijziging (even wachten, zodat niet elke tik een verzoek wordt).
+        if (container.leaderboard.isOnline) lifecycleScope.launch {
+            kotlinx.coroutines.flow.combine(container.progress.progress, container.profile.nickname) { pr, name ->
+                val regions = nl.topo.app.data.content.Content.regions.filter { it.available }
+                nl.topo.app.data.online.PlayerStats(
+                    playerId = "", nickname = name, points = pr.points, streak = pr.streak, rounds = pr.rounds,
+                    mastered = regions.sumOf { pr.mastered(it) },
+                    regions = regions.associate { it.id.name to pr.mastered(it) },
+                    updatedAt = 0L,
+                )
+            }.distinctUntilChanged().collectLatest { st ->
+                kotlinx.coroutines.delay(3_000)
+                container.leaderboard.publishStats(st.copy(updatedAt = System.currentTimeMillis()))
+            }
+        }
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle(Settings())
             CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast) {

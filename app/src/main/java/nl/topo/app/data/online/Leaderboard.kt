@@ -47,6 +47,18 @@ data class LeaderboardEntry(
 
 enum class Period { DAY, WEEK }
 
+/** Samenvatting van iemands voortgang, voor vrienden. [regions]: gebied -> aantal gekende vakjes. */
+data class PlayerStats(
+    val playerId: String,
+    val nickname: String,
+    val points: Int,
+    val streak: Int,
+    val rounds: Int,
+    val mastered: Int,
+    val regions: Map<String, Int>,
+    val updatedAt: Long,
+)
+
 /** Een vriend: zijn speler-ID, vriendcode en bijnaam (zoals bij het toevoegen). */
 @Serializable
 data class Friend(val playerId: String, val code: String, val nickname: String)
@@ -89,6 +101,12 @@ interface LeaderboardService {
 
     /** Bijnaam ook bij je vriendcode bijwerken. */
     suspend fun syncNickname() {}
+
+    /** Jouw voortgang online zetten, zodat vrienden hem kunnen zien. */
+    suspend fun publishStats(stats: PlayerStats) {}
+
+    /** Voortgang van deze spelers (wie niets heeft gedeeld, ontbreekt). */
+    suspend fun stats(playerIds: Collection<String>): Map<String, PlayerStats> = emptyMap()
 
     /** Nog niet verstuurde resultaten. */
     val pending: Flow<List<ScoreSubmission>>

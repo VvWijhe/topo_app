@@ -82,6 +82,7 @@ fun ProgressScreen(onOpenRegion: (RegionId) -> Unit, onGoToMap: () -> Unit) {
                 }
             }
         }
+        item { FriendsProgressCard(progress) }
         items(regions, key = { it.id }) { r -> RegionProgress(r, progress) { onOpenRegion(r.id) } }
     }
 }
