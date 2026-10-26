@@ -89,5 +89,5 @@ jobs:
           packageName: nl.vanwijhe.lodestar
           releaseFiles: ${{ env.AAB }}
           releaseName: Lodestar ${{ env.VERSION }}
-          track: internal
+          tracks: internal
           status: completed
