@@ -70,6 +70,12 @@ interface LeaderboardService {
     /** Verwijder al mijn online gegevens. */
     suspend fun deleteMyData()
 
+    /** Staat er al een (lokaal bewaard) resultaat voor deze dag en moeilijkheid? */
+    suspend fun hasResult(day: Long, difficulty: String): Boolean
+
+    /** Laatste foutmelding bij versturen of ophalen (null = alles goed). */
+    val problem: Flow<String?>
+
     companion object {
         /** Ranglijstvolgorde: meeste punten, dan snelste tijd. */
         val ORDER: Comparator<LeaderboardEntry> = compareByDescending<LeaderboardEntry> { it.points }.thenBy { it.timeMs }
@@ -113,6 +119,10 @@ class OfflineLeaderboard(private val store: DataStore<Preferences>, private val 
     private val pendingKey = stringPreferencesKey("online/pending")
 
     override val isOnline: Boolean = false
+    override val problem: Flow<String?> = kotlinx.coroutines.flow.flowOf(null)
+
+    override suspend fun hasResult(day: Long, difficulty: String): Boolean =
+        results().any { it.day == day && it.difficulty == difficulty }
 
     private fun decode(s: String?): List<ScoreSubmission> = s?.let { runCatching { json.decodeFromString(ser, it) }.getOrNull() }.orEmpty()
 

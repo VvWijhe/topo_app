@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -33,6 +34,16 @@ class FirebaseLeaderboard(
 
     override val isOnline: Boolean = true
     override val pending: Flow<List<ScoreSubmission>> = local.pending
+    private val _problem = MutableStateFlow<String?>(null)
+    override val problem: Flow<String?> = _problem
+
+    override suspend fun hasResult(day: Long, difficulty: String) = local.hasResult(day, difficulty)
+
+    private fun describe(e: Throwable): String = when (e) {
+        is FirebaseFirestoreException -> "Firestore: ${e.code}"
+        is kotlinx.coroutines.TimeoutCancellationException -> "Timeout (no internet?)"
+        else -> (e::class.simpleName ?: "Error") + (e.message?.let { ": " + it.take(120) } ?: "")
+    }
 
     private suspend fun uid(): String =
         auth.currentUser?.uid ?: auth.signInAnonymously().await().user?.uid ?: error("Inloggen mislukt")
@@ -76,7 +87,8 @@ class FirebaseLeaderboard(
                     }
                 }
             }
-        }.onFailure { Log.w(TAG, "Versturen mislukt; later opnieuw", it) }
+        }.onSuccess { _problem.value = null }
+            .onFailure { Log.w(TAG, "Versturen mislukt; later opnieuw", it); _problem.value = describe(it) }
         local.markSent(sent)
         sent.size
     }
@@ -118,12 +130,16 @@ class FirebaseLeaderboard(
                                 )
                             }
                     }
-                }.sortedWith(LeaderboardService.ORDER).take(100)
+                }
             }
+        }.map { online ->
+            // Eigen uitslag nog niet online (bijv. nog in de wachtrij)? Dan toch tonen.
+            if (online.any { it.isMe }) online else online + local.ranking(day, difficulty, period)
         }.getOrElse {
             Log.w(TAG, "Ranglijst ophalen mislukt; eigen resultaten tonen", it)
+            _problem.value = describe(it)
             local.ranking(day, difficulty, period)
-        }
+        }.sortedWith(LeaderboardService.ORDER).take(100)
     }
 
     override suspend fun deleteMyData() {

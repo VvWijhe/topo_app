@@ -17,6 +17,8 @@ private val Context.topoStore: DataStore<Preferences> by preferencesDataStore(na
 
 /** Eenvoudige afhankelijkheden-container. Later eventueel te vervangen door Hilt. */
 class AppContainer(context: Context) {
+    /** Voor werk dat door moet lopen als je het scherm verlaat (zoals een uitslag versturen). */
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
     private val store = context.topoStore
     val settings = SettingsRepository(store)
     val progress = ProgressRepository(store)

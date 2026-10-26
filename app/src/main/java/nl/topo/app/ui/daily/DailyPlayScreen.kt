@@ -173,16 +173,15 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
             app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed)
             val o = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp, mistakes, outOfLives)
             outcome = o
-            // Naar de ranglijst (offline: bewaard in de wachtrij tot de online ranglijst aan staat)
-            app.leaderboard.submit(
+            // Naar de ranglijst. In de app-scope, zodat het ook doorgaat als je het scherm verlaat.
+            app.scope.launch { app.leaderboard.submit(
                 ScoreSubmission(
                     playerId = app.profile.playerId(), nickname = app.profile.currentNickname(),
                     day = c.day, difficulty = c.difficulty.name, points = o.gained, found = found.size, total = total,
                     mistakes = mistakes, hints = hints, timeMs = elapsed, completed = found.size == total,
                     submittedAt = System.currentTimeMillis(),
                 ),
-            )
-            rankingVersion++
+            ); rankingVersion++ }
         }
     }
 

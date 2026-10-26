@@ -25,6 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import nl.topo.app.data.online.ScoreSubmission
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -63,6 +67,7 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
     val day = remember { DailyChallenges.today() }
     val easyState by app.progress.daily(day, Difficulty.EASY.name).collectAsStateWithLifecycle(DailyState())
     val hardState by app.progress.daily(day, Difficulty.HARD.name).collectAsStateWithLifecycle(DailyState())
+    var rankingKey by remember { mutableIntStateOf(0) }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -87,7 +92,23 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit) {
             tr("Easy", "Makkelijk"), tr("5 lives · hints · 10 points per country", "5 levens · hints · 10 punten per land")) { onPlay(Difficulty.EASY) }
         ChallengeCard(hard, hardState, Night.ember, Icons.Rounded.Whatshot,
             tr("Hard", "Moeilijk"), tr("3 lives · no hints · 25 points per country", "3 levens · geen hints · 25 punten per land")) { onPlay(Difficulty.HARD) }
-        RankingCard(day = day, refreshKey = easyState to hardState)
+        // Uitgespeeld maar (nog) niet in de ranglijst, bijv. gespeeld vóór de ranglijst bestond? Alsnog insturen.
+        LaunchedEffect(easyState.finished, hardState.finished) {
+            for ((ch, st) in listOf(easy to easyState, hard to hardState)) {
+                if (!st.finished || app.leaderboard.hasResult(day, ch.difficulty.name)) continue
+                app.leaderboard.submit(
+                    ScoreSubmission(
+                        playerId = app.profile.playerId(), nickname = app.profile.currentNickname(),
+                        day = day, difficulty = ch.difficulty.name, points = st.points.coerceAtLeast(0),
+                        found = st.found.count { it in ch.targets }, total = ch.targets.size,
+                        mistakes = st.mistakes, hints = st.hints, timeMs = st.timeMs,
+                        completed = ch.targets.all { it in st.found }, submittedAt = System.currentTimeMillis(),
+                    ),
+                )
+                rankingKey++
+            }
+        }
+        RankingCard(day = day, refreshKey = Triple(easyState, hardState, rankingKey))
         Text(
             tr(
                 "Everyone gets the same challenges today. The map shows no borders: countries appear as you name them.",

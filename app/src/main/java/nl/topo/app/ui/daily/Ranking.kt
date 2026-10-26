@@ -73,6 +73,7 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
     var diff by rememberSaveable { mutableStateOf(difficulty ?: Difficulty.EASY) }
     val nickname by app.profile.nickname.collectAsStateWithLifecycle("")
     val pending by app.leaderboard.pending.collectAsStateWithLifecycle(emptyList())
+    val problem by app.leaderboard.problem.collectAsStateWithLifecycle(null)
     val entries by produceState<List<LeaderboardEntry>?>(null, day, diff, period, refreshKey, nickname) {
         value = app.leaderboard.ranking(day, diff.name, period)
     }
@@ -130,6 +131,13 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
                 Spacer(Modifier.width(8.dp))
                 Text(tr("Change", "Wijzigen"), style = MaterialTheme.typography.labelLarge, color = Night.glow)
             }
+        }
+        if (app.leaderboard.isOnline && pending.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                tr("${pending.size} result(s) not sent yet", "${pending.size} uitslag(en) nog niet verstuurd") + (problem?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall, color = Night.ember,
+            )
         }
         if (!app.leaderboard.isOnline) {
             Spacer(Modifier.height(8.dp))
