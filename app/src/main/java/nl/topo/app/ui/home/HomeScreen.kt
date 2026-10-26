@@ -113,7 +113,7 @@ fun HomeScreen(
     var pickerOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(progress.lastPlayed) {
         val last = progress.lastPlayed
-        if (!initialised && last != null) {
+        if (!initialised && last != null && Content.region(last.region).available) {
             val r = Content.region(last.region)
             if (r.kind == RegionKind.COUNTRY) { regionId = RegionId.EUROPA; countryCode = r.countryCode } else regionId = r.id
             initialised = true
@@ -270,7 +270,7 @@ fun HomeScreen(
                     )
                 }
             }
-            if (countryCode == null) progress.lastPlayed?.let { last ->
+            if (countryCode == null) progress.lastPlayed?.takeIf { Content.region(it.region).available }?.let { last ->
                 Box(Modifier.padding(horizontal = 16.dp)) { ContinueRow(last) { onPlay(last.region, last.topicId, last.level) } }
             }
         }

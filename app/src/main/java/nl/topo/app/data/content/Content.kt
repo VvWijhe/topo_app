@@ -87,7 +87,8 @@ object Content {
         id = RegionId.NEDERLAND,
         name = Txt("Netherlands", "Nederland"),
         tagline = Txt("Provinces, cities and water", "Provincies, steden en water"),
-        available = true,
+        // Voorlopig uit: landen met eigen onderwerpen komen later terug.
+        available = false,
         kind = RegionKind.COUNTRY,
         countryCode = "NLD",
         levelScope = listOf(Txt("the basics", "de basis"), Txt("more places", "meer plaatsen"), Txt("almost everything", "bijna alles"), Txt("everything", "alles"), Txt("everything", "alles")),
@@ -182,7 +183,7 @@ object Content {
     fun forContinent(c: Continent): Region = regions.first { it.continent == c }
 
     /** Landen met eigen onderwerpen (nu alleen Nederland). */
-    fun forCountry(code: String): Region? = regions.firstOrNull { it.countryCode == code }
+    fun forCountry(code: String): Region? = regions.firstOrNull { it.countryCode == code && it.available }
 
     /** Onderwerpen waarvan de quiz al echt werkt. */
     fun isPlayable(region: Region, topicId: String): Boolean = true
