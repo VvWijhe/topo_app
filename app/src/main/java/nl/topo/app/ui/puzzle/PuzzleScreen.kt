@@ -112,7 +112,7 @@ data class PuzzleResult(
 
 /** Oefenpuzzel: elke "Nieuwe puzzel" een nieuwe, voor halve punten. */
 @Composable
-fun PuzzleScreen(kind: PuzzleKind, hintsAllowed: Boolean = true, onBack: () -> Unit) {
+fun PuzzleScreen(kind: PuzzleKind, hard: Boolean = false, onBack: () -> Unit) {
     val app = LocalAppContainer.current
     val world by produceState<WorldMap?>(null) { value = app.geo.world() }
     val w = world
@@ -126,15 +126,15 @@ fun PuzzleScreen(kind: PuzzleKind, hintsAllowed: Boolean = true, onBack: () -> U
     val footer: @Composable () -> Unit = { GlowButton(tr("New puzzle", "Nieuwe puzzel"), { seed = Random.nextLong() }, Modifier.fillMaxWidth()) }
     when (kind) {
         PuzzleKind.ROUTE -> {
-            val p = remember(w, seed) { RoutePuzzle.generate(w, Random(seed)) }
+            val p = remember(w, seed) { Random(seed).let { r -> RoutePuzzle.generate(w, r, if (hard) (7..10).random(r) else (4..6).random(r)) } }
             androidx.compose.runtime.key(seed) {
-                RouteGame(w, p, PuzzleState(), tr("Route · practice", "Route · oefenen"), save, finish, onBack, footer)
+                RouteGame(w, p, PuzzleState(), tr("Route", "Route") + " · " + (if (hard) tr("hard", "moeilijk") else tr("easy", "makkelijk")), save, finish, onBack, footer)
             }
         }
         PuzzleKind.MYSTERY -> {
             val p = remember(w, seed) { MysteryPuzzle.generate(w, Random(seed)) }
             androidx.compose.runtime.key(seed) {
-                MysteryGame(w, p, PuzzleState(), tr("Mystery country · practice", "Mysterieland · oefenen"), hintsAllowed, save, finish, onBack, footer)
+                MysteryGame(w, p, PuzzleState(), tr("Mystery country", "Mysterieland") + " · " + (if (hard) tr("hard", "moeilijk") else tr("easy", "makkelijk")), !hard, save, finish, onBack, footer)
             }
         }
     }

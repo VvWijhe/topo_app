@@ -17,7 +17,7 @@ import nl.topo.app.data.puzzle.PuzzleKind
 import nl.topo.app.data.daily.Challenge
 import nl.topo.app.ui.practice.PracticeScreen
 import nl.topo.app.ui.daily.PracticeChallengeScreen
-import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.Extension
 import nl.topo.app.ui.puzzle.PuzzleScreen
 import nl.topo.app.ui.daily.DailyPlayScreen
 import nl.topo.app.ui.daily.DailyScreen
@@ -79,7 +79,7 @@ private data class Tab(val route: String, val label: Txt, val icon: ImageVector)
 private val tabs = listOf(
     Tab(Routes.HOME, Txt("Map", "Kaart"), Icons.Rounded.Explore),
     Tab(Routes.DAILY, Txt("Daily", "Dagelijks"), Icons.Rounded.Today),
-    Tab(Routes.PRACTICE, Txt("Practice", "Oefenen"), Icons.Rounded.FitnessCenter),
+    Tab(Routes.PRACTICE, Txt("Puzzles", "Puzzels"), Icons.Rounded.Extension),
     Tab(Routes.PROGRESS, Txt("Progress", "Voortgang"), Icons.Rounded.Insights),
     Tab(Routes.SETTINGS, Txt("Settings", "Instellingen"), Icons.Rounded.Settings),
 )
@@ -138,8 +138,8 @@ fun TopoApp() {
                     val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
                     Box(Modifier.statusBarsPadding()) {
                         when (k) {
-                            Challenge.Kind.ROUTE -> PuzzleScreen(PuzzleKind.ROUTE, onBack = { nav.popBackStack() })
-                            Challenge.Kind.MYSTERY -> PuzzleScreen(PuzzleKind.MYSTERY, hintsAllowed = d == Difficulty.EASY, onBack = { nav.popBackStack() })
+                            Challenge.Kind.ROUTE -> PuzzleScreen(PuzzleKind.ROUTE, hard = d == Difficulty.HARD, onBack = { nav.popBackStack() })
+                            Challenge.Kind.MYSTERY -> PuzzleScreen(PuzzleKind.MYSTERY, hard = d == Difficulty.HARD, onBack = { nav.popBackStack() })
                             else -> PracticeChallengeScreen(k, d, onBack = { nav.popBackStack() })
                         }
                     }
