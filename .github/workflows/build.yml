@@ -64,6 +64,15 @@ jobs:
           name: topo-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
+      # Oude .aab-bestanden van de openbare pagina halen (die bevatten het upload-certificaat).
+      - name: Oude bundels van de releasepagina halen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view laatste --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null | grep '\.aab$' | while read -r a; do
+            gh release delete-asset laatste "$a" --repo "$GITHUB_REPOSITORY" -y || true
+          done
+
       # Zet de nieuwste APK op een vaste downloadpagina: Releases → "Topo (laatste versie)"
       - name: Publiceren als 'laatste' release
         uses: softprops/action-gh-release@v2
@@ -73,12 +82,11 @@ jobs:
           body: |
             Versie ${{ env.VERSION }}, automatisch gebouwd uit commit ${{ github.sha }}.
             - **app-debug.apk**: direct installeren op je telefoon ("Lodestar dev").
-            - **lodestar-…aab**: uploaden in de Play Console (Testen → Interne tests → Nieuwe release).
+            De Play Store-versie wordt automatisch naar de interne test geüpload.
           prerelease: true
           make_latest: false
-          files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            ${{ env.AAB }}
+          # De .aab gaat alleen naar de Play Store, niet op deze openbare pagina (het certificaat bevat je naam).
+          files: app/build/outputs/apk/debug/app-debug.apk
 
       # Elke nieuwe versie automatisch naar de interne test in de Play Store.
       - name: Uploaden naar Play Store (interne test)
