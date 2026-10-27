@@ -9,6 +9,8 @@ import nl.topo.app.data.i18n.Lang
 import nl.topo.app.data.i18n.Txt
 import java.time.LocalDate
 import kotlin.random.Random
+import nl.topo.app.data.puzzle.MysteryPuzzle
+import nl.topo.app.data.puzzle.RoutePuzzle
 
 enum class Difficulty { EASY, HARD }
 
@@ -32,8 +34,14 @@ data class Challenge(
     val subject: String? = null,
     val line: GlobeLine? = null,
     val viewport: Rect,
+    /** Bij [Kind.ROUTE]: de route-puzzel. */
+    val route: RoutePuzzle? = null,
+    /** Bij [Kind.MYSTERY]: het mysterieland. */
+    val mystery: MysteryPuzzle? = null,
 ) {
-    enum class Kind { NEIGHBOURS, LINE, LETTER, TOP }
+    enum class Kind { NEIGHBOURS, LINE, LETTER, TOP, ROUTE, MYSTERY }
+
+    val isPuzzle: Boolean get() = kind == Kind.ROUTE || kind == Kind.MYSTERY
 }
 
 /**
@@ -44,20 +52,50 @@ object DailyChallenges {
 
     fun today(): Long = LocalDate.now().toEpochDay()
 
+    /** Vanaf deze dag horen Route en Mysterieland bij de wisseling (eerder gespeelde dagen blijven gelijk). */
+    private val PUZZLES_FROM: Long = LocalDate.of(2026, 10, 28).toEpochDay()
+
     fun forDay(w: WorldMap, day: Long, difficulty: Difficulty, lang: Lang): Challenge {
         val rnd = Random(day * 7919 + difficulty.ordinal * 104729)
-        val kinds = if (difficulty == Difficulty.EASY)
-            listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.TOP, Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE)
-        else
-            listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE, Challenge.Kind.LETTER, Challenge.Kind.TOP)
+        val kinds = when {
+            day < PUZZLES_FROM && difficulty == Difficulty.EASY ->
+                listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.TOP, Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE)
+            day < PUZZLES_FROM ->
+                listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE, Challenge.Kind.LETTER, Challenge.Kind.TOP)
+            difficulty == Difficulty.EASY ->
+                listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.ROUTE, Challenge.Kind.TOP, Challenge.Kind.MYSTERY, Challenge.Kind.LINE)
+            else ->
+                listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.ROUTE, Challenge.Kind.LINE, Challenge.Kind.LETTER, Challenge.Kind.MYSTERY, Challenge.Kind.TOP, Challenge.Kind.NEIGHBOURS)
+        }
         val kind = kinds[Math.floorMod(day, kinds.size.toLong()).toInt()]
+        return make(w, kind, difficulty, rnd, lang, day).copy(day = day, difficulty = difficulty)
+    }
+
+    /** Eén uitdaging van deze soort; ook voor oefenen (met een willekeurig zaad). [day] bepaalt bij Moeilijk de routelengte. */
+    fun make(w: WorldMap, kind: Challenge.Kind, difficulty: Difficulty, rnd: Random, lang: Lang, day: Long? = null): Challenge {
         val c = when (kind) {
             Challenge.Kind.NEIGHBOURS -> neighbours(w, difficulty, rnd)
             Challenge.Kind.LINE -> line(w, difficulty, rnd)
             Challenge.Kind.LETTER -> letter(w, difficulty, rnd, lang)
             Challenge.Kind.TOP -> top(w, difficulty, rnd)
+            Challenge.Kind.ROUTE -> {
+                // Makkelijk: 3 landen ertussen. Moeilijk: 5 tot 8, in het weekend de langste.
+                val length = when {
+                    difficulty == Difficulty.EASY -> 4
+                    day != null -> maxOf(6, RoutePuzzle.dailyLength(day))
+                    else -> (6..9).random(rnd)
+                }
+                val r = RoutePuzzle.generate(w, rnd, length)
+                val a = w.countries.getValue(r.from); val b = w.countries.getValue(r.to)
+                blank(Challenge.Kind.ROUTE, Txt("Travel from ${a.names.en} to ${b.names.en}", "Reis van ${a.names.nl} naar ${b.names.nl}"), emptyList(), r.viewport(w))
+                    .copy(route = r)
+            }
+            Challenge.Kind.MYSTERY -> {
+                val m = MysteryPuzzle.generate(w, rnd)
+                blank(Challenge.Kind.MYSTERY, Txt("Find the mystery country", "Vind het mysterieland"), emptyList(), w.worldViewport).copy(mystery = m)
+            }
         }
-        return c.copy(day = day, difficulty = difficulty)
+        return c.copy(difficulty = difficulty)
     }
 
     private fun blank(kind: Challenge.Kind, title: Txt, targets: List<String>, viewport: Rect, subject: String? = null, line: GlobeLine? = null) =

@@ -127,11 +127,90 @@ fun DailyPlayScreen(difficulty: Difficulty, onBack: () -> Unit) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
         return
     }
-    ChallengePlay(w, challenge, s, onBack)
+    if (challenge.isPuzzle) DailyPuzzle(w, challenge, s, onBack) else ChallengePlay(w, challenge, s, onBack)
+}
+
+/** Oefenen: een nieuwe uitdaging van deze soort, zonder opslag of ranglijst, voor halve punten. */
+@Composable
+fun PracticeChallengeScreen(kind: Challenge.Kind, difficulty: Difficulty, onBack: () -> Unit) {
+    val app = LocalAppContainer.current
+    val lang = LocalLang.current
+    val world by produceState<WorldMap?>(null) { value = app.geo.world() }
+    val w = world
+    var seed by androidx.compose.runtime.saveable.rememberSaveable { mutableLongStateOf(kotlin.random.Random.nextLong()) }
+    if (w == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
+        return
+    }
+    val c = remember(w, seed, lang) { DailyChallenges.make(w, kind, difficulty, kotlin.random.Random(seed), lang).copy(day = -1) }
+    androidx.compose.runtime.key(seed) {
+        ChallengePlay(w, c, nl.topo.app.data.prefs.DailyState(), onBack, practice = true, onNew = { seed = kotlin.random.Random.nextLong() })
+    }
+}
+
+/** Dagelijkse uitdaging van het type Route of Mysterieland. */
+@Composable
+private fun DailyPuzzle(w: WorldMap, c: Challenge, stored: nl.topo.app.data.prefs.DailyState, onBack: () -> Unit) {
+    val app = LocalAppContainer.current
+    val hard = c.difficulty == Difficulty.HARD
+    var done by remember { mutableStateOf(stored.finished) }
+    var elapsed by remember { mutableLongStateOf(stored.timeMs) }
+    var lastGuesses by remember { mutableStateOf(stored.found) }
+    var lastHints by remember { mutableIntStateOf(stored.hints) }
+    var rankingVersion by remember { mutableIntStateOf(0) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(done) {
+        if (done) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var sinceSave = 0
+            while (true) {
+                delay(1000); elapsed += 1000; sinceSave++
+                if (sinceSave >= 5) { sinceSave = 0; app.progress.saveDaily(c.day, c.difficulty.name, lastGuesses, lastHints, stored.mistakes, elapsed) }
+            }
+        }
+    }
+    val initial = nl.topo.app.data.prefs.PuzzleState(
+        guesses = stored.found, hints = stored.hints, finished = stored.finished,
+        solved = stored.finished && !stored.gaveUp && !stored.lost, points = stored.points,
+    )
+    val eyebrow = tr("Daily challenge", "Dagelijkse uitdaging") + " · " + if (hard) tr("Hard", "Moeilijk") else tr("Easy", "Makkelijk")
+    val save: suspend (List<String>, Int) -> Unit = { g, h ->
+        lastGuesses = g; lastHints = h
+        app.progress.saveDaily(c.day, c.difficulty.name, g, h, 0, elapsed)
+    }
+    val finish: suspend (nl.topo.app.ui.puzzle.PuzzleResult) -> RoundOutcome = { r ->
+        done = true
+        val pts = if (hard) r.points * 3 / 2 else r.points
+        val o = app.progress.finishDailyPuzzle(c.day, c.difficulty.name, pts, r.gaveUp, lost = !r.solved && !r.gaveUp, mistakes = r.wrong)
+        app.scope.launch {
+            app.leaderboard.submit(
+                ScoreSubmission(
+                    playerId = app.profile.playerId(), nickname = app.profile.currentNickname(),
+                    day = c.day, difficulty = c.difficulty.name, points = o.gained, found = r.found, total = r.total,
+                    mistakes = r.wrong, hints = r.hints, timeMs = elapsed, completed = r.solved,
+                    submittedAt = System.currentTimeMillis(),
+                ),
+            ); rankingVersion++
+        }
+        o
+    }
+    val footer: @Composable () -> Unit = {
+        Text(tr("Time: ", "Tijd: ") + formatTime(elapsed), style = MaterialTheme.typography.bodySmall, color = Night.muted)
+        RankingCard(day = c.day, difficulty = c.difficulty, refreshKey = rankingVersion, compact = true)
+        Text(tr("Come back tomorrow for new challenges.", "Kom morgen terug voor nieuwe uitdagingen."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
+    }
+    val status = if (done) null else formatTime(elapsed)
+    when (c.kind) {
+        Challenge.Kind.ROUTE -> nl.topo.app.ui.puzzle.RouteGame(w, c.route!!, initial, eyebrow, save, finish, onBack, footer, status)
+        else -> nl.topo.app.ui.puzzle.MysteryGame(w, c.mystery!!, initial, eyebrow, hintsAllowed = !hard, save, finish, onBack, footer, status)
+    }
 }
 
 @Composable
-private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.prefs.DailyState, onBack: () -> Unit) {
+private fun ChallengePlay(
+    w: WorldMap, c: Challenge, stored: nl.topo.app.data.prefs.DailyState, onBack: () -> Unit,
+    practice: Boolean = false, onNew: (() -> Unit)? = null,
+) {
     val app = LocalAppContainer.current
     val lang = LocalLang.current
     val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
@@ -157,7 +236,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
             var sinceSave = 0
             while (true) {
                 delay(1000); elapsed += 1000; sinceSave++
-                if (sinceSave >= 5) { sinceSave = 0; app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed) }
+                if (sinceSave >= 5) { sinceSave = 0; if (!practice) app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed) }
             }
         }
     }
@@ -169,6 +248,13 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
     fun finish(giveUp: Boolean, outOfLives: Boolean = false) {
         if (finished) return
         finished = true; gaveUp = giveUp; lost = outOfLives
+        if (practice) {
+            scope.launch {
+                val pts = DailyRules.score(hard, found.size, total, hints, mistakes).coerceAtLeast(0) / 2
+                outcome = app.progress.finishPuzzle(null, "PRACTICE_" + c.kind.name, found.size == total, pts)
+            }
+            return
+        }
         scope.launch {
             app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes, elapsed)
             val o = app.progress.finishDaily(c.day, c.difficulty.name, hard, found.size, total, hints, giveUp, mistakes, outOfLives)
@@ -195,7 +281,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                 found.add(target.code)
                 if (hinted == target.code) hinted = null
                 if (settings.haptics) feel.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
+                scope.launch { if (!practice) app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
                 if (found.size == total) finish(false)
                 Said.Found(target)
             }
@@ -208,7 +294,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                     else -> {
                         // een echt land dat er niet bij hoort: fout, kost punten en een leven
                         mistakes++
-                        scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
+                        scope.launch { if (!practice) app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
                         if (mistakes >= maxMistakes) finish(giveUp = false, outOfLives = true)
                         Said.NotIn(other, DailyRules.penalty(hard))
                     }
@@ -223,7 +309,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
         if (left.isEmpty() || hard || finished) return
         hinted = left.random()
         hints++
-        scope.launch { app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
+        scope.launch { if (!practice) app.progress.saveDaily(c.day, c.difficulty.name, found.toList(), hints, mistakes) }
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
@@ -231,7 +317,7 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Back", "Terug"), tint = Night.text) }
-                Eyebrow(tr("Daily challenge", "Dagelijkse uitdaging") + " · " + if (hard) tr("Hard", "Moeilijk") else tr("Easy", "Makkelijk"),
+                Eyebrow((if (practice) tr("Practice", "Oefenen") else tr("Daily challenge", "Dagelijkse uitdaging")) + " · " + if (hard) tr("Hard", "Moeilijk") else tr("Easy", "Makkelijk"),
                     color = if (hard) Night.ember else Night.glow)
             }
             Text(c.title.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
@@ -311,8 +397,12 @@ private fun ChallengePlay(w: WorldMap, c: Challenge, stored: nl.topo.app.data.pr
                     if (stored.finished) Text(tr("Points earned today: +${stored.points}", "Punten vandaag verdiend: +${stored.points}"), style = MaterialTheme.typography.bodyMedium, color = Night.gold)
                 }
                 Text(tr("Time: ", "Tijd: ") + formatTime(elapsed), style = MaterialTheme.typography.bodySmall, color = Night.muted)
-                RankingCard(day = c.day, difficulty = c.difficulty, refreshKey = rankingVersion, compact = true)
-                Text(tr("Come back tomorrow for new challenges.", "Kom morgen terug voor nieuwe uitdagingen."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
+                if (practice) {
+                    onNew?.let { GlowButton(tr("New challenge", "Nieuwe uitdaging"), it, Modifier.fillMaxWidth()) }
+                } else {
+                    RankingCard(day = c.day, difficulty = c.difficulty, refreshKey = rankingVersion, compact = true)
+                    Text(tr("Come back tomorrow for new challenges.", "Kom morgen terug voor nieuwe uitdagingen."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
+                }
                 Spacer(Modifier.height(4.dp))
             }
         }

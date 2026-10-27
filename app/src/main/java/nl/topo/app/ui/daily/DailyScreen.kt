@@ -64,7 +64,7 @@ import java.time.format.FormatStyle
 
 /** Tab met de twee uitdagingen van vandaag. */
 @Composable
-fun DailyScreen(onPlay: (Difficulty) -> Unit, onPuzzle: (PuzzleKind, Boolean) -> Unit = { _, _ -> }) {
+fun DailyScreen(onPlay: (Difficulty) -> Unit) {
     val app = LocalAppContainer.current
     val lang = LocalLang.current
     val world by produceState<WorldMap?>(null) { value = app.geo.world() }
@@ -72,8 +72,6 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit, onPuzzle: (PuzzleKind, Boolean) ->
     val easyState by app.progress.daily(day, Difficulty.EASY.name).collectAsStateWithLifecycle(DailyState())
     val hardState by app.progress.daily(day, Difficulty.HARD.name).collectAsStateWithLifecycle(DailyState())
     var rankingKey by remember { mutableIntStateOf(0) }
-    val routeState by app.progress.puzzle(day, PuzzleKind.ROUTE.name).collectAsStateWithLifecycle(PuzzleState())
-    val mysteryState by app.progress.puzzle(day, PuzzleKind.MYSTERY.name).collectAsStateWithLifecycle(PuzzleState())
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -101,7 +99,7 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit, onPuzzle: (PuzzleKind, Boolean) ->
         // Uitgespeeld maar (nog) niet in de ranglijst, bijv. gespeeld vóór de ranglijst bestond? Alsnog insturen.
         LaunchedEffect(easyState.finished, hardState.finished) {
             for ((ch, st) in listOf(easy to easyState, hard to hardState)) {
-                if (!st.finished || app.leaderboard.hasResult(day, ch.difficulty.name)) continue
+                if (ch.isPuzzle || !st.finished || app.leaderboard.hasResult(day, ch.difficulty.name)) continue
                 app.leaderboard.submit(
                     ScoreSubmission(
                         playerId = app.profile.playerId(), nickname = app.profile.currentNickname(),
@@ -115,17 +113,7 @@ fun DailyScreen(onPlay: (Difficulty) -> Unit, onPuzzle: (PuzzleKind, Boolean) ->
             }
         }
         RankingCard(day = day, refreshKey = Triple(easyState, hardState, rankingKey))
-        Text(tr("Puzzles", "Puzzels"), style = MaterialTheme.typography.headlineSmall, color = Night.text, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
-        PuzzleCard(
-            Icons.Rounded.Route, tr("Route", "Route"),
-            tr("Travel over land between two countries via the fewest countries in between.", "Reis over land tussen twee landen, via zo min mogelijk landen ertussen."),
-            routeState, onDaily = { onPuzzle(PuzzleKind.ROUTE, true) }, onPractice = { onPuzzle(PuzzleKind.ROUTE, false) },
-        )
-        PuzzleCard(
-            Icons.Rounded.TravelExplore, tr("Mystery country", "Mysterieland"),
-            tr("Guess the country. Each guess tells you how far away it is and in which direction.", "Raad het land. Elke gok zegt hoe ver het is en in welke richting."),
-            mysteryState, onDaily = { onPuzzle(PuzzleKind.MYSTERY, true) }, onPractice = { onPuzzle(PuzzleKind.MYSTERY, false) },
-        )
+
         Text(
             tr(
                 "Everyone gets the same challenges today. The map shows no borders: countries appear as you name them.",
@@ -142,43 +130,66 @@ private fun nextIn(lang: nl.topo.app.data.i18n.Lang): String {
     return lang.t("new ones in ${mins / 60}h ${mins % 60}m", "nieuwe over ${mins / 60}u ${mins % 60}m")
 }
 
+/** Kaart voor een dagelijkse uitdaging van het type Route of Mysterieland. */
 @Composable
-private fun PuzzleCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, about: String, s: PuzzleState, onDaily: () -> Unit, onPractice: () -> Unit) {
+private fun PuzzleChallengeCard(c: Challenge, s: DailyState, color: Color, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onPlay: () -> Unit) {
     val lang = LocalLang.current
+    val hard = c.difficulty == Difficulty.HARD
+    val solved = s.finished && !s.gaveUp && !s.lost
     NightCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Night.gold, modifier = Modifier.size(20.dp))
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.14f)).border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(50))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(label, style = MaterialTheme.typography.labelMedium, color = Night.text)
+            }
             Spacer(Modifier.width(8.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Night.text, modifier = Modifier.weight(1f))
+            Icon(if (c.kind == Challenge.Kind.ROUTE) Icons.Rounded.Route else Icons.Rounded.TravelExplore, null, tint = Night.gold, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.weight(1f))
             if (s.finished) {
-                Icon(Icons.Rounded.CheckCircle, null, tint = if (s.solved) Night.glow else Night.muted, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.CheckCircle, null, tint = if (solved) Night.glow else Night.muted, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("+${formatPoints(s.points, lang)}", style = MaterialTheme.typography.labelMedium, color = Night.gold)
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(about, style = MaterialTheme.typography.bodySmall, color = Night.muted)
+        Spacer(Modifier.height(10.dp))
+        Text(c.title.text, style = MaterialTheme.typography.headlineSmall, color = Night.text)
+        val rules = when (c.kind) {
+            Challenge.Kind.ROUTE -> c.route!!.let { r ->
+                tr("Route puzzle · ${r.needed} countries in between · ${r.maxGuesses} guesses", "Route-puzzel · ${r.needed} landen ertussen · ${r.maxGuesses} pogingen")
+            }
+            else -> if (hard) tr("Mystery country · no hints", "Mysterieland · geen hints") else tr("Mystery country · 2 hints", "Mysterieland · 2 hints")
+        }
+        Text(rules, style = MaterialTheme.typography.bodySmall, color = Night.muted)
+        Spacer(Modifier.height(10.dp))
+        Eyebrow(
+            when {
+                solved -> tr("Solved in ${s.found.size} guesses", "Opgelost in ${s.found.size} pogingen")
+                s.finished -> tr("Not solved", "Niet opgelost")
+                s.found.isNotEmpty() -> tr("${s.found.size} guesses so far", "${s.found.size} pogingen tot nu toe")
+                else -> tr("Not started", "Nog niet begonnen")
+            },
+        )
         Spacer(Modifier.height(12.dp))
         GlowButton(
             when {
-                s.finished -> tr("Today's puzzle: view result", "Puzzel van vandaag: uitslag")
-                s.guesses.isNotEmpty() -> tr("Continue today's puzzle", "Verder met de puzzel van vandaag")
-                else -> tr("Today's puzzle", "Puzzel van vandaag")
+                s.finished -> tr("View result", "Bekijk uitslag")
+                s.found.isNotEmpty() -> tr("Continue", "Verder")
+                else -> tr("Start", "Begin")
             },
-            onDaily, Modifier.fillMaxWidth(),
+            onPlay, Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(8.dp))
-        androidx.compose.material3.OutlinedButton(
-            onClick = onPractice, modifier = Modifier.fillMaxWidth(),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Night.outline),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Night.text),
-        ) { Text(tr("Practise (half points)", "Oefenen (halve punten)"), style = MaterialTheme.typography.labelLarge) }
     }
 }
 
 @Composable
 private fun ChallengeCard(c: Challenge, s: DailyState, color: Color, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, rules: String, onPlay: () -> Unit) {
     val lang = LocalLang.current
+    if (c.isPuzzle) { PuzzleChallengeCard(c, s, color, icon, label, onPlay); return }
     val total = c.targets.size
     val found = s.found.count { it in c.targets }
     NightCard(Modifier.fillMaxWidth()) {

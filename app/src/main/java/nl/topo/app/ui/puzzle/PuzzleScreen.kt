@@ -95,32 +95,47 @@ import nl.topo.app.ui.components.rememberMapZoom
 import nl.topo.app.ui.theme.Night
 import kotlin.random.Random
 
-/** Puzzel van vandaag ([daily]) of een oefenpuzzel. */
+/** Uitslag van een puzzel. [points] = basispunten; de aanroeper schaalt (oefenen: de helft). */
+data class PuzzleResult(
+    val solved: Boolean,
+    val gaveUp: Boolean,
+    val guesses: List<String>,
+    val hints: Int,
+    /** Gokken die niet raak waren. */
+    val wrong: Int,
+    /** Wat je moest vinden (route: landen ertussen; mysterieland: 1). */
+    val total: Int,
+    /** Hoeveel daarvan je had. */
+    val found: Int,
+    val points: Int,
+)
+
+/** Oefenpuzzel: elke "Nieuwe puzzel" een nieuwe, voor halve punten. */
 @Composable
-fun PuzzleScreen(kind: PuzzleKind, daily: Boolean, onBack: () -> Unit) {
+fun PuzzleScreen(kind: PuzzleKind, hintsAllowed: Boolean = true, onBack: () -> Unit) {
     val app = LocalAppContainer.current
     val world by produceState<WorldMap?>(null) { value = app.geo.world() }
     val w = world
-    val day = remember { DailyChallenges.today() }
-    // Oefenen: elke "Nieuwe puzzel" een nieuw zaadje.
     var seed by rememberSaveable { mutableLongStateOf(Random.nextLong()) }
-    val stored by produceState<PuzzleState?>(if (daily) null else PuzzleState(), daily) {
-        if (daily) app.progress.puzzle(day, kind.name).collect { if (value == null) value = it }
-    }
-    val s = stored
-    if (w == null || s == null) {
+    if (w == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Night.glow) }
         return
     }
-    val onNew: (() -> Unit)? = if (daily) null else ({ seed = Random.nextLong() })
+    val save: suspend (List<String>, Int) -> Unit = { _, _ -> }
+    val finish: suspend (PuzzleResult) -> RoundOutcome = { r -> app.progress.finishPuzzle(null, kind.name, r.solved, r.points / 2) }
+    val footer: @Composable () -> Unit = { GlowButton(tr("New puzzle", "Nieuwe puzzel"), { seed = Random.nextLong() }, Modifier.fillMaxWidth()) }
     when (kind) {
         PuzzleKind.ROUTE -> {
-            val p = remember(w, daily, seed) { if (daily) RoutePuzzle.daily(w, day) else RoutePuzzle.generate(w, Random(seed)) }
-            androidx.compose.runtime.key(p.from, p.to, seed) { RoutePlay(w, p, s, if (daily) day else null, onBack, onNew) }
+            val p = remember(w, seed) { RoutePuzzle.generate(w, Random(seed)) }
+            androidx.compose.runtime.key(seed) {
+                RouteGame(w, p, PuzzleState(), tr("Route · practice", "Route · oefenen"), save, finish, onBack, footer)
+            }
         }
         PuzzleKind.MYSTERY -> {
-            val p = remember(w, daily, seed) { if (daily) MysteryPuzzle.daily(w, day) else MysteryPuzzle.generate(w, Random(seed)) }
-            androidx.compose.runtime.key(p.target, seed) { MysteryPlay(w, p, s, if (daily) day else null, onBack, onNew) }
+            val p = remember(w, seed) { MysteryPuzzle.generate(w, Random(seed)) }
+            androidx.compose.runtime.key(seed) {
+                MysteryGame(w, p, PuzzleState(), tr("Mystery country · practice", "Mysterieland · oefenen"), hintsAllowed, save, finish, onBack, footer)
+            }
         }
     }
 }
@@ -128,8 +143,14 @@ fun PuzzleScreen(kind: PuzzleKind, daily: Boolean, onBack: () -> Unit) {
 // ============================ route ============================
 
 @Composable
-private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Long?, onBack: () -> Unit, onNew: (() -> Unit)?) {
-    val app = LocalAppContainer.current
+fun RouteGame(
+    w: WorldMap, p: RoutePuzzle, stored: PuzzleState, eyebrow: String,
+    onSave: suspend (List<String>, Int) -> Unit,
+    onFinish: suspend (PuzzleResult) -> RoundOutcome?,
+    onBack: () -> Unit,
+    footer: @Composable () -> Unit,
+    status: String? = null,
+) {
     val lang = LocalLang.current
     val scope = rememberCoroutineScope()
     val guesses = remember { mutableStateListOf<String>().apply { addAll(stored.guesses) } }
@@ -142,13 +163,18 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
     val to = w.countries.getValue(p.to)
     val left = p.maxGuesses - guesses.size
 
-    fun finish(ok: Boolean) {
+    fun finish(ok: Boolean, gaveUp: Boolean = false) {
         if (finished) return
         finished = true; solved = ok
+        val g = guesses.toList()
+        val onRoute = g.count { p.fit(it) == RoutePuzzle.Fit.ON_ROUTE }
         scope.launch {
-            day?.let { app.progress.savePuzzle(it, PuzzleKind.ROUTE.name, guesses.toList(), hints) }
-            val pts = PuzzlePoints.route(p.needed, guesses.size, hints, ok).let { if (day == null) it / 2 else it }
-            outcome = app.progress.finishPuzzle(day, PuzzleKind.ROUTE.name, ok, pts)
+            onSave(g, hints)
+            outcome = onFinish(PuzzleResult(
+                solved = ok, gaveUp = gaveUp, guesses = g, hints = hints, wrong = g.size - onRoute,
+                total = p.needed, found = if (ok) p.needed else onRoute.coerceAtMost(p.needed),
+                points = PuzzlePoints.route(p.needed, g.size, hints, ok),
+            ))
         }
     }
 
@@ -163,7 +189,7 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
                     RoutePuzzle.Fit.CLOSE -> lang.t("${c.name(lang)}: close, one detour.", "${c.name(lang)}: dichtbij, één omweg.") to Night.gold
                     RoutePuzzle.Fit.OFF -> lang.t("${c.name(lang)} isn't on the way.", "${c.name(lang)} ligt niet op de route.") to Night.danger
                 }
-                day?.let { scope.launch { app.progress.savePuzzle(it, PuzzleKind.ROUTE.name, guesses.toList(), hints) } }
+                scope.launch { onSave(guesses.toList(), hints) }
                 when {
                     p.solved(guesses) -> finish(true)
                     guesses.size >= p.maxGuesses -> finish(false)
@@ -179,7 +205,7 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
     }
 
     PuzzleLayout(
-        eyebrow = (if (day != null) tr("Route of the day", "Route van de dag") else tr("Route · practice", "Route · oefenen")) + " · " + when {
+        eyebrow = eyebrow + " · " + when {
             p.needed <= 3 -> tr("short", "kort")
             p.needed <= 5 -> tr("medium", "middel")
             else -> tr("long", "lang")
@@ -188,7 +214,7 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
         subtitle = tr(
             "Travel over land: name the ${p.needed} countries in between on the shortest route. $left guesses left.",
             "Reis over land: noem de ${p.needed} landen ertussen op de kortste route. Nog $left keer raden.",
-        ),
+        ) + (status?.let { " · $it" } ?: ""),
         onBack = onBack,
         map = { RouteMap(w, p, guesses, finished) },
     ) {
@@ -201,7 +227,7 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
                     Icon(Icons.Rounded.Lightbulb, null, tint = Night.gold); Spacer(Modifier.width(6.dp)); Text(tr("Hint (uses a guess)", "Hint (kost een gok)"))
                 }
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = { finish(false) }, border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.muted)) {
+                OutlinedButton(onClick = { finish(false, gaveUp = true) }, border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.muted)) {
                     Text(tr("Give up", "Opgeven"))
                 }
             }
@@ -214,7 +240,7 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
                 style = MaterialTheme.typography.titleSmall, color = if (solved) Night.glow else Night.text,
             )
             Text(route.mapNotNull { w.countries[it]?.name(lang) }.joinToString(" → "), style = MaterialTheme.typography.bodyMedium, color = Night.text)
-            Result(outcome, stored, day, onNew)
+            Result(outcome, stored, footer)
         }
     }
 }
@@ -267,8 +293,14 @@ private fun RouteMap(w: WorldMap, p: RoutePuzzle, guesses: List<String>, finishe
 // ============================ mysterieland ============================
 
 @Composable
-private fun MysteryPlay(w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, day: Long?, onBack: () -> Unit, onNew: (() -> Unit)?) {
-    val app = LocalAppContainer.current
+fun MysteryGame(
+    w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, eyebrow: String, hintsAllowed: Boolean,
+    onSave: suspend (List<String>, Int) -> Unit,
+    onFinish: suspend (PuzzleResult) -> RoundOutcome?,
+    onBack: () -> Unit,
+    footer: @Composable () -> Unit,
+    status: String? = null,
+) {
     val lang = LocalLang.current
     val scope = rememberCoroutineScope()
     val feel = LocalHapticFeedback.current
@@ -281,13 +313,16 @@ private fun MysteryPlay(w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, day:
     val target = w.countries.getValue(p.target)
     val clues = guesses.mapNotNull { p.clue(w, it) }
 
-    fun finish(ok: Boolean) {
+    fun finish(ok: Boolean, gaveUp: Boolean = false) {
         if (finished) return
         finished = true; solved = ok
+        val g = guesses.toList()
         scope.launch {
-            day?.let { app.progress.savePuzzle(it, PuzzleKind.MYSTERY.name, guesses.toList(), hints) }
-            val pts = PuzzlePoints.mystery(guesses.size, hints, ok).let { if (day == null) it / 2 else it }
-            outcome = app.progress.finishPuzzle(day, PuzzleKind.MYSTERY.name, ok, pts)
+            onSave(g, hints)
+            outcome = onFinish(PuzzleResult(
+                solved = ok, gaveUp = gaveUp, guesses = g, hints = hints, wrong = if (ok) g.size - 1 else g.size,
+                total = 1, found = if (ok) 1 else 0, points = PuzzlePoints.mystery(g.size, hints, ok),
+            ))
         }
     }
 
@@ -297,17 +332,17 @@ private fun MysteryPlay(w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, day:
         guesses += c.code
         message = null
         feel.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        day?.let { scope.launch { app.progress.savePuzzle(it, PuzzleKind.MYSTERY.name, guesses.toList(), hints) } }
+        scope.launch { onSave(guesses.toList(), hints) }
         if (c.code == p.target) finish(true)
     }
 
     PuzzleLayout(
-        eyebrow = if (day != null) tr("Mystery country of the day", "Mysterieland van de dag") else tr("Mystery country · practice", "Mysterieland · oefenen"),
+        eyebrow = eyebrow,
         title = tr("Which country is it?", "Welk land is het?"),
         subtitle = tr(
             "Guess any country. You'll see how far its capital is from the mystery capital, and in which direction.",
             "Raad een land. Je ziet hoe ver de hoofdstad van de mysterie-hoofdstad ligt, en in welke richting.",
-        ),
+        ) + (status?.let { " · $it" } ?: ""),
         onBack = onBack,
         map = { MysteryMap(w, p, clues, finished) },
     ) {
@@ -319,14 +354,14 @@ private fun MysteryPlay(w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, day:
             }
             if (hints >= 2) Text(tr("Hint: it starts with “${target.name(lang).take(1)}”.", "Hint: het begint met “${target.name(lang).take(1)}”."), style = MaterialTheme.typography.bodySmall, color = Night.gold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hints < 2) OutlinedButton(onClick = {
+                if (hintsAllowed && hints < 2) OutlinedButton(onClick = {
                     hints++
-                    day?.let { scope.launch { app.progress.savePuzzle(it, PuzzleKind.MYSTERY.name, guesses.toList(), hints) } }
+                    scope.launch { onSave(guesses.toList(), hints) }
                 }, border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.text)) {
                     Icon(Icons.Rounded.Lightbulb, null, tint = Night.gold); Spacer(Modifier.width(6.dp)); Text(tr("Hint (−20)", "Hint (−20)"))
                 }
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = { finish(false) }, border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.muted)) {
+                OutlinedButton(onClick = { finish(false, gaveUp = true) }, border = BorderStroke(1.dp, Night.outline), colors = ButtonDefaults.outlinedButtonColors(contentColor = Night.muted)) {
                     Text(tr("Give up", "Opgeven"))
                 }
             }
@@ -339,7 +374,7 @@ private fun MysteryPlay(w: WorldMap, p: MysteryPuzzle, stored: PuzzleState, day:
                     style = MaterialTheme.typography.titleSmall, color = if (solved) Night.glow else Night.text,
                 )
             }
-            Result(outcome, stored, day, onNew)
+            Result(outcome, stored, footer)
         }
         // Gokken, dichtstbijzijnde bovenaan
         clues.sortedByDescending { it.closeness }.forEach { c -> ClueRow(w, c) }
@@ -500,10 +535,9 @@ private fun Chips(w: WorldMap, items: List<Pair<String, Color>>) {
 }
 
 @Composable
-private fun Result(outcome: RoundOutcome?, stored: PuzzleState, day: Long?, onNew: (() -> Unit)?) {
+private fun Result(outcome: RoundOutcome?, stored: PuzzleState, footer: @Composable () -> Unit) {
     outcome?.let { PointsPanel(it) } ?: run {
         if (stored.finished) Text(tr("Points earned: +${stored.points}", "Punten verdiend: +${stored.points}"), style = MaterialTheme.typography.bodyMedium, color = Night.gold)
     }
-    if (onNew != null) GlowButton(tr("New puzzle", "Nieuwe puzzel"), onNew, Modifier.fillMaxWidth())
-    else if (day != null) Text(tr("A new one tomorrow. Want more? Try practice mode.", "Morgen een nieuwe. Meer? Probeer oefenen."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
+    footer()
 }

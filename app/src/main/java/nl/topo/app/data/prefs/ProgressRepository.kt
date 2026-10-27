@@ -201,6 +201,24 @@ class ProgressRepository(private val store: DataStore<Preferences>) {
         return outcome
     }
 
+    /** Dagelijkse uitdaging van het type Route/Mysterieland afronden: punten zoals berekend door de puzzel. */
+    suspend fun finishDailyPuzzle(day: Long, difficulty: String, points: Int, gaveUp: Boolean, lost: Boolean, mistakes: Int): RoundOutcome {
+        var outcome = RoundOutcome(false, emptyList(), 0, 0, emptyList())
+        store.edit { p ->
+            val pointsKey = intPreferencesKey(dailyKey(day, difficulty, "points"))
+            if (p[pointsKey] != null) return@edit // al afgerond
+            val awards = mutableListOf<Award>()
+            if (points > 0) awards += Award(Award.Kind.PUZZLE, points)
+            val (before, after) = applyDayAndPoints(p, awards)
+            p[pointsKey] = after - before
+            if (gaveUp) p[intPreferencesKey(dailyKey(day, difficulty, "gaveUp"))] = 1
+            if (lost) p[intPreferencesKey(dailyKey(day, difficulty, "lost"))] = 1
+            p[intPreferencesKey(dailyKey(day, difficulty, "mistakes"))] = mistakes
+            outcome = RoundOutcome(false, awards, before, after, emptyList())
+        }
+        return outcome
+    }
+
     // ---------------- puzzels ----------------
 
     private fun puzzleKey(day: Long, kind: String, what: String) = "puzzle/$day/$kind/$what"
@@ -354,6 +372,10 @@ data class PuzzleState(
 object DailyRules {
     /** Zoveel fouten mag je maken; bij de volgende is het voorbij. */
     fun maxMistakes(hard: Boolean) = if (hard) 3 else 5
+
+    /** Punten zoals [ProgressRepository.finishDaily] ze geeft (zonder dagbonus). */
+    fun score(hard: Boolean, found: Int, total: Int, hints: Int, mistakes: Int): Int =
+        found * (if (hard) 25 else 10) + (if (found == total && total > 0) (if (hard) 200 else 50) else 0) - 5 * hints - mistakes * penalty(hard)
     /** Puntenaftrek per fout. */
     fun penalty(hard: Boolean) = if (hard) 10 else 5
 }

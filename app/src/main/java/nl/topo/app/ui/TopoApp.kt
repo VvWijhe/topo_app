@@ -14,10 +14,15 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
 import nl.topo.app.data.daily.Difficulty
 import nl.topo.app.data.puzzle.PuzzleKind
+import nl.topo.app.data.daily.Challenge
+import nl.topo.app.ui.practice.PracticeScreen
+import nl.topo.app.ui.daily.PracticeChallengeScreen
+import androidx.compose.material.icons.rounded.FitnessCenter
 import nl.topo.app.ui.puzzle.PuzzleScreen
 import nl.topo.app.ui.daily.DailyPlayScreen
 import nl.topo.app.ui.daily.DailyScreen
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -61,8 +66,9 @@ object Routes {
     const val QUIZ = "quiz/{region}/{topic}/{level}"
     const val DAILY = "daily"
     const val DAILY_PLAY = "daily/{difficulty}"
-    const val PUZZLE = "puzzle/{kind}/{mode}"
-    fun puzzle(kind: PuzzleKind, daily: Boolean) = "puzzle/${kind.name}/${if (daily) "daily" else "practice"}"
+    const val PRACTICE = "practice"
+    const val PRACTICE_PLAY = "practice/{kind}/{difficulty}"
+    fun practicePlay(kind: Challenge.Kind, d: Difficulty) = "practice/${kind.name}/${d.name}"
     fun dailyPlay(d: Difficulty) = "daily/${d.name}"
     fun region(id: RegionId) = "region/${id.name}"
     fun quiz(id: RegionId, topic: String, level: Int) = "quiz/${id.name}/$topic/$level"
@@ -73,6 +79,7 @@ private data class Tab(val route: String, val label: Txt, val icon: ImageVector)
 private val tabs = listOf(
     Tab(Routes.HOME, Txt("Map", "Kaart"), Icons.Rounded.Explore),
     Tab(Routes.DAILY, Txt("Daily", "Dagelijks"), Icons.Rounded.Today),
+    Tab(Routes.PRACTICE, Txt("Practice", "Oefenen"), Icons.Rounded.FitnessCenter),
     Tab(Routes.PROGRESS, Txt("Progress", "Voortgang"), Icons.Rounded.Insights),
     Tab(Routes.SETTINGS, Txt("Settings", "Instellingen"), Icons.Rounded.Settings),
 )
@@ -114,19 +121,28 @@ fun TopoApp() {
                     }
                 }
                 composable(Routes.DAILY) {
-                    Box(Modifier.statusBarsPadding()) { DailyScreen(onPlay = { nav.navigate(Routes.dailyPlay(it)) }, onPuzzle = { k, d -> nav.navigate(Routes.puzzle(k, d)) }) }
+                    Box(Modifier.statusBarsPadding()) { DailyScreen(onPlay = { nav.navigate(Routes.dailyPlay(it)) }) }
                 }
                 composable(Routes.DAILY_PLAY, arguments = listOf(navArgument("difficulty") { type = NavType.StringType })) { e ->
                     val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
                     Box(Modifier.statusBarsPadding()) { DailyPlayScreen(d, onBack = { nav.popBackStack() }) }
                 }
+                composable(Routes.PRACTICE) {
+                    Box(Modifier.statusBarsPadding()) { PracticeScreen(onPlay = { k, d -> nav.navigate(Routes.practicePlay(k, d)) }) }
+                }
                 composable(
-                    Routes.PUZZLE,
-                    arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("mode") { type = NavType.StringType }),
+                    Routes.PRACTICE_PLAY,
+                    arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("difficulty") { type = NavType.StringType }),
                 ) { e ->
-                    val k = runCatching { PuzzleKind.valueOf(e.arguments?.getString("kind") ?: "ROUTE") }.getOrDefault(PuzzleKind.ROUTE)
-                    val daily = e.arguments?.getString("mode") == "daily"
-                    Box(Modifier.statusBarsPadding()) { PuzzleScreen(k, daily, onBack = { nav.popBackStack() }) }
+                    val k = runCatching { Challenge.Kind.valueOf(e.arguments?.getString("kind") ?: "NEIGHBOURS") }.getOrDefault(Challenge.Kind.NEIGHBOURS)
+                    val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
+                    Box(Modifier.statusBarsPadding()) {
+                        when (k) {
+                            Challenge.Kind.ROUTE -> PuzzleScreen(PuzzleKind.ROUTE, onBack = { nav.popBackStack() })
+                            Challenge.Kind.MYSTERY -> PuzzleScreen(PuzzleKind.MYSTERY, hintsAllowed = d == Difficulty.EASY, onBack = { nav.popBackStack() })
+                            else -> PracticeChallengeScreen(k, d, onBack = { nav.popBackStack() })
+                        }
+                    }
                 }
                 composable(Routes.SETTINGS) { Box(Modifier.statusBarsPadding()) { SettingsScreen() } }
                 composable(Routes.REGION, arguments = listOf(navArgument("region") { type = NavType.StringType })) { e ->
@@ -176,7 +192,7 @@ private fun BottomTabs(nav: NavHostController, current: String?) {
                 selected = current == tab.route,
                 onClick = { if (current != tab.route) nav.switchTab(tab.route) },
                 icon = { Icon(tab.icon, contentDescription = null) },
-                label = { Text(tab.label.text) },
+                label = { Text(tab.label.text, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Night.glow,
                     selectedTextColor = Night.glow,
