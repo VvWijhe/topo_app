@@ -55,6 +55,8 @@ object DailyChallenges {
     /** Vanaf deze dag horen Route en Mysterieland bij de wisseling (eerder gespeelde dagen blijven gelijk). */
     private val PUZZLES_FROM: Long = LocalDate.of(2026, 10, 28).toEpochDay()
 
+    private val easyKinds = listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.ROUTE, Challenge.Kind.TOP, Challenge.Kind.MYSTERY, Challenge.Kind.LINE)
+
     fun forDay(w: WorldMap, day: Long, difficulty: Difficulty, lang: Lang): Challenge {
         val rnd = Random(day * 7919 + difficulty.ordinal * 104729)
         val kinds = when {
@@ -62,13 +64,17 @@ object DailyChallenges {
                 listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.TOP, Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE)
             day < PUZZLES_FROM ->
                 listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LINE, Challenge.Kind.LETTER, Challenge.Kind.TOP)
-            difficulty == Difficulty.EASY ->
-                listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.LETTER, Challenge.Kind.ROUTE, Challenge.Kind.TOP, Challenge.Kind.MYSTERY, Challenge.Kind.LINE)
+            difficulty == Difficulty.EASY -> easyKinds
             else ->
                 listOf(Challenge.Kind.NEIGHBOURS, Challenge.Kind.ROUTE, Challenge.Kind.LINE, Challenge.Kind.LETTER, Challenge.Kind.MYSTERY, Challenge.Kind.TOP, Challenge.Kind.NEIGHBOURS)
         }
-        val kind = kinds[Math.floorMod(day, kinds.size.toLong()).toInt()]
-        return make(w, kind, difficulty, rnd, lang, day).copy(day = day, difficulty = difficulty)
+        var i = Math.floorMod(day, kinds.size.toLong()).toInt()
+        // Moeilijk nooit hetzelfde type als Makkelijk op dezelfde dag
+        if (difficulty == Difficulty.HARD && day >= PUZZLES_FROM) {
+            val easyKind = easyKinds[Math.floorMod(day, easyKinds.size.toLong()).toInt()]
+            while (kinds[i] == easyKind) i = (i + 1) % kinds.size
+        }
+        return make(w, kinds[i], difficulty, rnd, lang, day).copy(day = day, difficulty = difficulty)
     }
 
     /** Eén uitdaging van deze soort; ook voor oefenen (met een willekeurig zaad). [day] bepaalt bij Moeilijk de routelengte. */
