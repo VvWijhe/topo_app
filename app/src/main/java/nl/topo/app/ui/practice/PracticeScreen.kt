@@ -47,7 +47,7 @@ private val types = listOf(
     PracticeType(Challenge.Kind.LETTER, Icons.Rounded.SortByAlpha, Txt("Starting letter", "Beginletter"), Txt("Name every country that starts with a letter.", "Noem alle landen die met een letter beginnen.")),
     PracticeType(Challenge.Kind.TOP, Icons.Rounded.FormatListNumbered, Txt("Top lists", "Toplijsten"), Txt("The biggest countries of a continent, by people or by area.", "De grootste landen van een werelddeel, naar inwoners of oppervlakte.")),
     PracticeType(Challenge.Kind.LINE, Icons.Rounded.Public, Txt("Lines on the globe", "Lijnen over de wereld"), Txt("Every country on the equator, a tropic, the Arctic Circle or Greenwich.", "Alle landen op de evenaar, een keerkring, de poolcirkel of Greenwich.")),
-    PracticeType(Challenge.Kind.ROUTE, Icons.Rounded.Route, Txt("Route", "Route"), Txt("The shortest route over land between two countries. Easy: 3–5 countries in between. Hard: 6–9.", "De kortste route over land tussen twee landen. Makkelijk: 3–5 landen ertussen. Moeilijk: 6–9."),
+    PracticeType(Challenge.Kind.ROUTE, Icons.Rounded.Route, Txt("Route", "Route"), Txt("The shortest route over land between two countries. Easy: 3–5 countries in between. Hard: 6–9.", "De kortste route over land tussen twee landen. Makkelijk: 3–5 landen ertussen. Moeilijk: 6–9.")),
     PracticeType(Challenge.Kind.MYSTERY, Icons.Rounded.TravelExplore, Txt("Mystery country", "Mysterieland"), Txt("Guess the country from distance and direction. Hard: no hints.", "Raad het land aan de hand van afstand en richting. Moeilijk: geen hints.")),
 )
 
