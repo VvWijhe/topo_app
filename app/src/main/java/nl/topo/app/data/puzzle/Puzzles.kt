@@ -113,20 +113,40 @@ class RoutePuzzle(
     }
 
     companion object {
-        /** Kies een route van 3 tot 5 grensovergangen (2 tot 4 landen ertussen). */
-        fun generate(w: WorldMap, rnd: Random): RoutePuzzle {
+        /** Oefenen: meestal 3–5 grensovergangen, af en toe een lange route tot 8. */
+        private val practiceLengths = listOf(3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8)
+
+        /**
+         * Kies een route van precies [length] grensovergangen (of zo dicht mogelijk erbij).
+         * Begin en eind zijn onafhankelijke landen met minstens 1 miljoen inwoners.
+         */
+        fun generate(w: WorldMap, rnd: Random, length: Int = practiceLengths.random(rnd)): RoutePuzzle {
             val g = Borders.graph(w)
-            val starts = w.all.filter { it.sovereign && it.population >= 1_000_000 && it.code in g }.sortedBy { it.code }
-            repeat(200) {
-                val a = starts.random(rnd)
-                val d = Borders.distances(g, a.code)
-                val ends = d.filter { (code, n) -> n in 3..5 && w.countries[code]?.let { it.sovereign && it.population >= 1_000_000 } == true }.keys.sorted()
-                if (ends.isNotEmpty()) return RoutePuzzle(a.code, ends.random(rnd), g)
+            fun ok(code: String) = w.countries[code]?.let { it.sovereign && it.population >= 1_000_000 } == true
+            val starts = w.all.filter { ok(it.code) && it.code in g }.map { it.code }.sorted()
+            // Eerst precies de gevraagde lengte, dan steeds een stap korter.
+            for (want in length downTo 3) {
+                repeat(120) {
+                    val a = starts.random(rnd)
+                    val ends = Borders.distances(g, a).filter { (code, n) -> n == want && ok(code) }.keys.sorted()
+                    if (ends.isNotEmpty()) return RoutePuzzle(a, ends.random(rnd), g)
+                }
             }
             return RoutePuzzle("NLD", "AUT", g)
         }
 
-        fun daily(w: WorldMap, day: Long) = generate(w, Random(day * 48271 + 11))
+        /** Lengte van de route van de dag: door de week steeds langer, in het weekend de lastigste. */
+        fun dailyLength(day: Long): Int = when (java.time.LocalDate.ofEpochDay(day).dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> 3
+            java.time.DayOfWeek.TUESDAY -> 4
+            java.time.DayOfWeek.WEDNESDAY -> 4
+            java.time.DayOfWeek.THURSDAY -> 5
+            java.time.DayOfWeek.FRIDAY -> 5
+            java.time.DayOfWeek.SATURDAY -> 6
+            else -> 7
+        }
+
+        fun daily(w: WorldMap, day: Long) = generate(w, Random(day * 48271 + 11), dailyLength(day))
     }
 }
 

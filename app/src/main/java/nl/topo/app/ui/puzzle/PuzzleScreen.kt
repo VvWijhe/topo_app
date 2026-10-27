@@ -179,7 +179,11 @@ private fun RoutePlay(w: WorldMap, p: RoutePuzzle, stored: PuzzleState, day: Lon
     }
 
     PuzzleLayout(
-        eyebrow = (if (day != null) tr("Route of the day", "Route van de dag") else tr("Route · practice", "Route · oefenen")),
+        eyebrow = (if (day != null) tr("Route of the day", "Route van de dag") else tr("Route · practice", "Route · oefenen")) + " · " + when {
+            p.needed <= 2 -> tr("short", "kort")
+            p.needed <= 4 -> tr("medium", "middel")
+            else -> tr("long", "lang")
+        },
         title = tr("From ${from.name(lang)} to ${to.name(lang)}", "Van ${from.name(lang)} naar ${to.name(lang)}"),
         subtitle = tr(
             "Travel over land: name the ${p.needed} countries in between on the shortest route. $left guesses left.",
