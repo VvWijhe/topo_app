@@ -113,8 +113,8 @@ class RoutePuzzle(
     }
 
     companion object {
-        /** Oefenen: meestal 3–5 grensovergangen, af en toe een lange route tot 8. */
-        private val practiceLengths = listOf(3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8)
+        /** Oefenen: willekeurig 3 tot 9 landen ertussen (4 tot 10 grensovergangen). */
+        private val practiceLengths = (4..10).toList()
 
         /**
          * Kies een route van precies [length] grensovergangen (of zo dicht mogelijk erbij).
@@ -125,7 +125,7 @@ class RoutePuzzle(
             fun ok(code: String) = w.countries[code]?.let { it.sovereign && it.population >= 1_000_000 } == true
             val starts = w.all.filter { ok(it.code) && it.code in g }.map { it.code }.sorted()
             // Eerst precies de gevraagde lengte, dan steeds een stap korter.
-            for (want in length downTo 3) {
+            for (want in length downTo 4) {
                 repeat(120) {
                     val a = starts.random(rnd)
                     val ends = Borders.distances(g, a).filter { (code, n) -> n == want && ok(code) }.keys.sorted()
@@ -137,13 +137,14 @@ class RoutePuzzle(
 
         /** Lengte van de route van de dag: door de week steeds langer, in het weekend de lastigste. */
         fun dailyLength(day: Long): Int = when (java.time.LocalDate.ofEpochDay(day).dayOfWeek) {
-            java.time.DayOfWeek.MONDAY -> 3
+            // grensovergangen; landen ertussen = één minder
+            java.time.DayOfWeek.MONDAY -> 4
             java.time.DayOfWeek.TUESDAY -> 4
-            java.time.DayOfWeek.WEDNESDAY -> 4
+            java.time.DayOfWeek.WEDNESDAY -> 5
             java.time.DayOfWeek.THURSDAY -> 5
-            java.time.DayOfWeek.FRIDAY -> 5
-            java.time.DayOfWeek.SATURDAY -> 6
-            else -> 7
+            java.time.DayOfWeek.FRIDAY -> 6
+            java.time.DayOfWeek.SATURDAY -> 7
+            else -> 9
         }
 
         fun daily(w: WorldMap, day: Long) = generate(w, Random(day * 48271 + 11), dailyLength(day))
