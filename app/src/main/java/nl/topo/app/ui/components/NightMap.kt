@@ -150,6 +150,8 @@ fun NightMap(
     moving: Boolean = false,
     /** Andere kaartstijl dan de instelling (voor voorbeeldkaartjes). */
     styleOverride: MapStyle? = null,
+    /** Stippen voor landen die te klein zijn om te zien (uit bij voorbeeldkaartjes). */
+    dots: Boolean = true,
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
     // Volledig detail meteen; de grovere niveaus op de achtergrond.
@@ -229,7 +231,7 @@ fun NightMap(
                 if (spec?.edgeByGroup != true) drawPath(m.edge, edge, style = Stroke(edgePx / s, join = StrokeJoin.Round))
                 // Landen die te klein zijn om te zien (eilandstaten) krijgen een stip.
                 val minPx = 5.dp.toPx()
-                for ((id, shape) in map.countries) {
+                if (dots) for ((id, shape) in map.countries) {
                     if (borders != null && id !in borders) continue // in de uitdaging niets verklappen
                     val b = shape.bounds
                     if (maxOf(b.width, b.height) * s < minPx) {
