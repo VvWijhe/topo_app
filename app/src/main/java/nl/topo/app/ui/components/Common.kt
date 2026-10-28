@@ -113,7 +113,7 @@ fun ProgressBar(fraction: Float, modifier: Modifier = Modifier, color: Color = N
 fun ScoreDot(best: Int?, modifier: Modifier = Modifier, diameter: Dp = 34.dp) {
     val (fill, edge, fg) = when {
         best == null -> Triple(Color.Transparent, Night.outline, Night.faint)
-        best >= Levels.MASTERED -> Triple(Night.glow, Night.glow, Night.skyDeep)
+        best >= Levels.MASTERED -> Triple(Night.glow, Night.glow, Night.onAccent)
         best >= Levels.OK -> Triple(Night.mid.copy(alpha = 0.16f), Night.mid, Night.text)
         else -> Triple(Night.danger.copy(alpha = 0.16f), Night.danger, Night.text)
     }
@@ -175,7 +175,7 @@ fun GlowButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
             )
         },
         colors = ButtonDefaults.buttonColors(
-            containerColor = Night.glow, contentColor = Night.skyDeep,
+            containerColor = Night.glow, contentColor = Night.onAccent,
             disabledContainerColor = Night.surfaceHigh, disabledContentColor = Night.faint,
         ),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),

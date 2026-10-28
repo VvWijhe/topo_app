@@ -192,7 +192,7 @@ fun RankingCard(day: Long, difficulty: Difficulty? = null, refreshKey: Any? = nu
 @Composable
 private fun EntryRow(rank: Int, e: LeaderboardEntry, myName: String) {
     val lang = LocalLang.current
-    val medal = when (rank) { 1 -> Night.gold; 2 -> Color(0xFFC9D3DD); 3 -> Color(0xFFD49A6A); else -> Night.faint }
+    val medal = when (rank) { 1 -> Night.gold; 2 -> if (Night.isLight) Color(0xFF94A3B3) else Color(0xFFC9D3DD); 3 -> Color(0xFFD49A6A); else -> Night.faint }
     Row(
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small)
             .background(if (e.isMe) Night.glow.copy(alpha = 0.10f) else Night.surfaceHigh.copy(alpha = 0.5f))

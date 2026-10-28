@@ -42,7 +42,7 @@ fun NightSky(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> 
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Night.skyHigh, Night.sky, Night.skyDeep))),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        if (!Night.isLight) Canvas(Modifier.fillMaxSize()) {
             for (s in stars) {
                 val a = (s.base + 0.25f * sin(t + s.phase)).coerceIn(0.05f, 0.9f)
                 drawCircle(Color.White.copy(alpha = a), radius = s.r, center = Offset(s.x * size.width, s.y * size.height))

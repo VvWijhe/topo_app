@@ -3,6 +3,7 @@ package nl.topo.app.ui.region
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,7 @@ fun RegionScreen(regionId: RegionId, onBack: () -> Unit, onPlay: (topicId: Strin
     ) {
         item { Header(region, progress, onBack) }
         item { LevelLegend(region, countryCount) }
+        item { RoundLengthNote() }
         items(region.groups, key = { it.title.en }) { group -> TopicTable(region, group, progress, onPlay) }
         item {
             Text(
@@ -182,3 +184,33 @@ private fun TopicRow(region: Region, topic: Topic, progress: Progress, onPlay: (
 
 private fun Modifier.fillMaxHeight64() = this.height(64.dp)
 
+
+
+/** Laat zien of rondes tellen voor het halen van een niveau, met een snelle schakelaar. */
+@Composable
+private fun RoundLengthNote() {
+    val app = LocalAppContainer.current
+    val settings by app.settings.settings.collectAsStateWithLifecycle(nl.topo.app.data.prefs.Settings())
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val ten = settings.roundLength == nl.topo.app.data.prefs.RoundLength.TEN
+    Row(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small)
+            .background(if (ten) Night.ember.copy(alpha = 0.10f) else Night.glow.copy(alpha = 0.08f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (ten) tr("Rounds of 10 questions: practice only, they don't complete a level.", "Rondes van 10 vragen: alleen oefenen, je haalt er geen niveau mee.")
+            else tr("Whole level: every round counts for completing it.", "Hele niveau: elke ronde telt voor het halen ervan."),
+            style = MaterialTheme.typography.bodySmall, color = Night.text, modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            if (ten) tr("Play whole level", "Hele niveau") else tr("10 questions", "10 vragen"),
+            style = MaterialTheme.typography.labelLarge, color = Night.glow,
+            modifier = Modifier.clip(MaterialTheme.shapes.small).clickable {
+                scope.launch { app.settings.setRoundLength(if (ten) nl.topo.app.data.prefs.RoundLength.ALL else nl.topo.app.data.prefs.RoundLength.TEN) }
+            }.padding(6.dp),
+        )
+    }
+}

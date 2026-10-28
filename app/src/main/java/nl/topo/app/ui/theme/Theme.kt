@@ -4,30 +4,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
-private val NightScheme = darkColorScheme(
-    primary = Night.glow,
-    onPrimary = Night.skyDeep,
-    primaryContainer = Night.glowDim,
-    onPrimaryContainer = Night.text,
-    secondary = Night.ember,
-    onSecondary = Night.skyDeep,
-    tertiary = Night.gold,
-    background = Night.sky,
-    onBackground = Night.text,
-    surface = Night.surface,
-    onSurface = Night.text,
-    surfaceVariant = Night.surfaceHigh,
-    onSurfaceVariant = Night.muted,
-    surfaceContainer = Night.surface,
-    surfaceContainerHigh = Night.surfaceHigh,
-    surfaceContainerHighest = Night.surfaceHighest,
-    outline = Night.outline,
-    outlineVariant = Night.outlineSoft,
-    error = Night.danger,
-)
+private fun schemeFor(p: Palette) = run {
+    if (p.isLight) lightColorScheme(
+        primary = p.glow, onPrimary = p.onAccent, primaryContainer = p.glowDim, onPrimaryContainer = p.text,
+        secondary = p.ember, onSecondary = p.onAccent, tertiary = p.gold,
+        background = p.sky, onBackground = p.text, surface = p.surface, onSurface = p.text,
+        surfaceVariant = p.surfaceHigh, onSurfaceVariant = p.muted,
+        surfaceContainer = p.surface, surfaceContainerHigh = p.surfaceHigh, surfaceContainerHighest = p.surfaceHighest,
+        outline = p.outline, outlineVariant = p.outlineSoft, error = p.danger,
+    ) else darkColorScheme(
+        primary = p.glow, onPrimary = p.onAccent, primaryContainer = p.glowDim, onPrimaryContainer = p.text,
+        secondary = p.ember, onSecondary = p.onAccent, tertiary = p.gold,
+        background = p.sky, onBackground = p.text, surface = p.surface, onSurface = p.text,
+        surfaceVariant = p.surfaceHigh, onSurfaceVariant = p.muted,
+        surfaceContainer = p.surface, surfaceContainerHigh = p.surfaceHigh, surfaceContainerHighest = p.surfaceHighest,
+        outline = p.outline, outlineVariant = p.outlineSoft, error = p.danger,
+    )
+}
 
 private val TopoShapes = Shapes(
     small = RoundedCornerShape(10.dp),
@@ -39,6 +36,8 @@ private val TopoShapes = Shapes(
 val LocalHighContrast = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 @Composable
-fun TopoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = NightScheme, typography = TopoTypography, shapes = TopoShapes, content = content)
+fun TopoTheme(palette: Palette, content: @Composable () -> Unit) {
+    // Alle Night.*-kleuren volgen het gekozen palet.
+    if (Night.palette != palette) Night.palette = palette
+    MaterialTheme(colorScheme = schemeFor(palette), typography = TopoTypography, shapes = TopoShapes, content = content)
 }

@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Spellcheck
@@ -61,6 +63,7 @@ import kotlinx.coroutines.launch
 import nl.topo.app.data.i18n.Lang
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.RoundLength
+import nl.topo.app.data.prefs.ThemeMode
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
@@ -102,8 +105,20 @@ fun SettingsScreen() {
             }
         }
 
+        Section(tr("Look", "Weergave")) {
+            SettingRow(Icons.Rounded.DarkMode, tr("Theme", "Thema"), tr("Night map, day map, or follow your phone", "Nachtkaart, dagkaart, of zoals je telefoon")) {
+                Segmented(listOf(tr("Night", "Nacht"), tr("Day", "Dag"), tr("Phone", "Telefoon")), s.theme.ordinal) { i ->
+                    scope.launch { app.settings.setTheme(ThemeMode.entries[i]) }
+                }
+            }
+        }
+
         Section(tr("Playing", "Spelen")) {
-            SettingRow(Icons.Rounded.FormatListNumbered, tr("Round length", "Rondelengte"), tr("10 questions, or every item of the level", "10 vragen, of alles van het niveau")) {
+            SettingRow(
+                Icons.Rounded.FormatListNumbered, tr("Round length", "Rondelengte"),
+                if (s.roundLength == RoundLength.TEN) tr("10 questions: practice only — points and streak, but it doesn't complete a level", "10 vragen: alleen oefenen — punten en reeks, maar je haalt er geen niveau mee")
+                else tr("Whole level: every item, counts for completing levels", "Hele niveau: alles, telt voor het halen van niveaus"),
+            ) {
                 Segmented(listOf(tr("10 questions", "10 vragen"), tr("Whole level", "Hele niveau")), s.roundLength.ordinal) { i ->
                     scope.launch { app.settings.setRoundLength(RoundLength.entries[i]) }
                 }
@@ -157,6 +172,11 @@ fun SettingsScreen() {
                     tint = Night.danger, onClick = { confirmDeleteOnline = true },
                 )
             }
+        }
+
+        Section(tr("Introduction", "Introductie")) {
+            SettingRow(Icons.Rounded.Replay, tr("Show the introduction again", "Introductie opnieuw tonen"), tr("Walk through the first choices once more", "Loop de eerste keuzes nog eens door"),
+                onClick = { scope.launch { app.settings.setOnboarded(false) } })
         }
 
         Section(tr("Progress", "Voortgang")) {
@@ -274,7 +294,7 @@ private fun SwitchRow(icon: ImageVector, title: String, subtitle: String, checke
             checked = checked,
             onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Night.skyDeep, checkedTrackColor = Night.glow,
+                checkedThumbColor = Night.onAccent, checkedTrackColor = Night.glow,
                 uncheckedThumbColor = Night.muted, uncheckedTrackColor = Night.surfaceHigh, uncheckedBorderColor = Night.outline,
             ),
         )

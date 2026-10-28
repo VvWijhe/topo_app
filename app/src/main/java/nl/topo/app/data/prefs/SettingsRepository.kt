@@ -11,6 +11,9 @@ import nl.topo.app.data.i18n.Lang
 
 enum class RoundLength { TEN, ALL }
 
+/** Thema: Nachtkaart (donker), Dagkaart (licht) of zoals de telefoon staat. */
+enum class ThemeMode { DARK, LIGHT, SYSTEM }
+
 data class Settings(
     val sound: Boolean = true,
     val haptics: Boolean = true,
@@ -22,6 +25,9 @@ data class Settings(
     val highContrast: Boolean = false,
     /** Standaard Engels. */
     val language: Lang = Lang.EN,
+    val theme: ThemeMode = ThemeMode.DARK,
+    /** De introductie met de belangrijkste keuzes is doorlopen. */
+    val onboarded: Boolean = false,
 )
 
 class SettingsRepository(private val store: DataStore<Preferences>) {
@@ -33,6 +39,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val LANGUAGE = stringPreferencesKey("settings/language")
         val CONTRAST = booleanPreferencesKey("settings/contrast")
         val STRICT = booleanPreferencesKey("settings/strict")
+        val THEME = stringPreferencesKey("settings/theme")
+        val ONBOARDED = booleanPreferencesKey("settings/onboarded")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -44,6 +52,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             highContrast = p[Keys.CONTRAST] ?: false,
             strictTyping = p[Keys.STRICT] ?: false,
             language = p[Keys.LANGUAGE]?.let { runCatching { Lang.valueOf(it) }.getOrNull() } ?: Lang.EN,
+            theme = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+            onboarded = p[Keys.ONBOARDED] ?: false,
         )
     }
 
@@ -54,4 +64,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun setStrictTyping(on: Boolean) { store.edit { it[Keys.STRICT] = on } }
     suspend fun setHighContrast(on: Boolean) { store.edit { it[Keys.CONTRAST] = on } }
     suspend fun setLanguage(lang: Lang) { store.edit { it[Keys.LANGUAGE] = lang.name } }
+    suspend fun setTheme(mode: ThemeMode) { store.edit { it[Keys.THEME] = mode.name } }
+    suspend fun setOnboarded(done: Boolean) { store.edit { it[Keys.ONBOARDED] = done } }
 }
