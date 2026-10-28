@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import nl.topo.app.data.geo.GeoMap
 import nl.topo.app.ui.theme.LocalHighContrast
 import nl.topo.app.ui.theme.LocalMapStyle
+import nl.topo.app.ui.theme.NightPalette
 import nl.topo.app.data.prefs.MapStyle
 import androidx.compose.ui.graphics.lerp
 import nl.topo.app.ui.theme.Night
@@ -73,27 +74,22 @@ private class MapLevel(
 
 private class MapPaths(val levels: List<MapLevel>, val rivers: List<Path>, val graticule: List<Path>)
 
-/**
- * Kleur per land voor de stijl Atlas: buren (kaders die elkaar raken) krijgen verschillende kleuren.
- * Hebzuchtig, drukste landen eerst; zelden nodig, maar anders de minst gebruikte kleur onder de buren.
- */
-private fun atlasColors(map: GeoMap, n: Int): Map<String, Int> {
-    val ids = map.countries.keys.sorted()
-    val box = ids.associateWith { map.countries.getValue(it).bounds.inflate(1.5f) }
-    val nb = ids.associateWith { a -> ids.filter { b -> b != a && box.getValue(a).overlaps(box.getValue(b)) } }
-    val color = HashMap<String, Int>()
-    for (id in ids.sortedByDescending { nb.getValue(it).size }) {
-        val used = nb.getValue(id).mapNotNull { color[it] }
-        color[id] = (0 until n).firstOrNull { it !in used } ?: (0 until n).minBy { c -> used.count { it == c } }
-    }
-    return color
-}
-
-/** Atlas: per kleur één samengevoegd pad (zonder [skip]). */
+/** Per kleurgroep één samengevoegd pad (zonder [skip]); de grenzen per groep alleen als [withEdges]. */
 private fun mergeByColor(level: MapLevel, colors: Map<String, Int>, n: Int, skip: Set<String>): List<Path> {
     val groups = List(n) { Path().apply { fillType = PathFillType.EvenOdd } }
-    for ((id, p) in level.countries) if (id !in skip) groups[(colors[id] ?: 0) % n].addPath(p)
+    for ((id, p) in level.countries) if (id !in skip) groups[(colors[id] ?: 0).coerceIn(0, n - 1)].addPath(p)
     return groups
+}
+
+/** Paden per kaart onthouden: zo hoeft bijv. een rij voorbeeldkaartjes niet elk de hele wereld opnieuw op te bouwen. */
+private object LevelCache {
+    private val full = java.util.WeakHashMap<GeoMap, MapLevel>()
+    private val coarse = java.util.WeakHashMap<GeoMap, List<MapLevel>>()
+    private val atlas = java.util.WeakHashMap<GeoMap, Map<String, Int>>()
+    @Synchronized fun full(map: GeoMap) = full.getOrPut(map) { buildLevel(map, 0f) }
+    @Synchronized fun coarseOrNull(map: GeoMap): List<MapLevel>? = coarse[map]
+    @Synchronized fun putCoarse(map: GeoMap, l: List<MapLevel>) { coarse[map] = l }
+    @Synchronized fun atlas(map: GeoMap, n: Int) = atlas.getOrPut(map) { atlasGroups(map, n) }
 }
 
 /** Alle landen behalve [skip] samengevoegd tot één vlak en één grenslijn: veel sneller dan 200 losse paden. */
@@ -152,23 +148,28 @@ fun NightMap(
     onTap: ((Offset, MapTransform) -> Unit)? = null,
     /** De kaart beweegt (animatie): teken grover, zodat het soepel blijft. */
     moving: Boolean = false,
+    /** Andere kaartstijl dan de instelling (voor voorbeeldkaartjes). */
+    styleOverride: MapStyle? = null,
     overlay: @Composable BoxScope.(MapTransform) -> Unit = {},
 ) {
     // Volledig detail meteen; de grovere niveaus op de achtergrond.
-    val full = remember(map) { buildLevel(map, 0f) }
-    val coarse by produceState(emptyList<MapLevel>(), map) {
-        value = withContext(Dispatchers.Default) { LevelTolerances.drop(1).map { buildLevel(map, it * map.width) } }
+    val full = remember(map) { LevelCache.full(map) }
+    val coarse by produceState(LevelCache.coarseOrNull(map) ?: emptyList(), map) {
+        if (value.isEmpty()) value = withContext(Dispatchers.Default) {
+            LevelCache.coarseOrNull(map) ?: LevelTolerances.drop(1).map { buildLevel(map, it * map.width) }.also { LevelCache.putCoarse(map, it) }
+        }
     }
     val rivers = remember(map) { map.rivers.values.map { it.toPath(closed = false) } }
     val grat = remember(map, graticule) { if (graticule) buildGraticule(map) else emptyList() }
     val paths = remember(full, coarse, rivers, grat) { MapPaths(listOf(full) + coarse, rivers, grat) }
     // Samengevoegde paden per niveau, opnieuw bij een andere selectie.
     val merged = remember(paths, glow, borders) { arrayOfNulls<Merged>(paths.levels.size) }
-    // Atlas: elk land een eigen kleur. Niet in de uitdaging (borders != null): kleuren zouden de grenzen verraden.
-    val atlasPalette = Night.atlas
-    val atlas = LocalMapStyle.current == MapStyle.ATLAS && borders == null && atlasPalette.isNotEmpty()
-    val atlasColors = remember(map, atlasPalette.size) { if (atlasPalette.isEmpty()) emptyMap() else atlasColors(map, atlasPalette.size) }
-    val atlasMerged = remember(paths, glow, atlasColors) { arrayOfNulls<List<Path>>(paths.levels.size) }
+    // Kaartstijl. Niet in de uitdaging (borders != null): kleuren zouden de grenzen verraden.
+    val style = styleOverride ?: LocalMapStyle.current
+    val light = Night.isLight
+    val atlasIdx = remember(map) { LevelCache.atlas(map, NightPalette.atlas.size) }
+    val spec = remember(style, map, light, atlasIdx) { if (borders != null) null else styleSpec(style, map, light, atlasIdx) }
+    val styled = remember(paths, glow, spec) { arrayOfNulls<List<Path>>(paths.levels.size) }
     val hi = LocalHighContrast.current
     val landCol = if (hi) Night.landHi else Night.land
     val hoverCol = if (hi) Night.landHoverHi else Night.landHover
@@ -200,23 +201,32 @@ fun NightMap(
             // Grenzen en kusten: ongeveer 1,2 dp, ongeacht de zoom
             val borderPx = borderDp.toPx()
             withTransform({ translate(tf.dx, tf.dy); scale(s, s, pivot = Offset.Zero) }) {
-                paths.graticule.forEach { drawPath(it, Night.graticule, style = Stroke(1f / s)) }
+                spec?.sea?.let { sea -> drawRect(sea, topLeft = tf.toMap(Offset.Zero), size = Size(size.width / s, size.height / s)) }
+                val gratStroke = if (spec?.dashedGraticule == true) Stroke(1f / s, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f / s, 6f / s))) else Stroke(1f / s)
+                paths.graticule.forEach { drawPath(it, spec?.graticule ?: Night.graticule, style = gratStroke) }
                 // Zonder grenzen ook geen kleurverschil met omliggend land, anders zie je toch de vorm.
-                drawPath(level.background, if (borders != null) landCol else decorCol)
-                if (borders == null) drawPath(level.background, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round))
-                if (atlas) {
+                val edge = spec?.edge ?: edgeCol
+                val edgePx = borderPx * (spec?.edgeScale ?: 1f)
+                drawPath(level.background, if (borders != null) landCol else spec?.decor ?: decorCol)
+                if (borders == null) drawPath(level.background, edge.copy(alpha = 0.5f), style = Stroke(edgePx * 0.8f / s, join = StrokeJoin.Round))
+                if (spec != null) {
                     // Is er een gebied gekozen, dan is de rest gedempt en het gebied in volle kleur.
-                    val groups = atlasMerged[li] ?: mergeByColor(level, atlasColors, atlasPalette.size, glow).also { atlasMerged[li] = it }
-                    val dim = if (glow.isEmpty()) 1f else 0.4f
-                    groups.forEachIndexed { i, g -> drawPath(g, lerp(landCol, atlasPalette[i], dim)) }
-                    for (id in glow) level.countries[id]?.let { drawPath(it, atlasPalette[(atlasColors[id] ?: 0) % atlasPalette.size]) }
+                    val n = spec.palette.size
+                    val groups = styled[li] ?: mergeByColor(level, spec.group, n, glow).also { styled[li] = it }
+                    val keep = if (glow.isEmpty()) 1f else spec.dim
+                    groups.forEachIndexed { i, g ->
+                        val c = lerp(spec.base, spec.palette[i], keep)
+                        if (spec.fillAlpha > 0f) drawPath(g, c.copy(alpha = spec.fillAlpha))
+                        if (spec.edgeByGroup) drawPath(g, c, style = Stroke(edgePx / s, join = StrokeJoin.Round))
+                    }
+                    for (id in glow) level.countries[id]?.let { drawPath(it, spec.palette[(spec.group[id] ?: 0).coerceIn(0, n - 1)].copy(alpha = maxOf(spec.fillAlpha, 0.25f))) }
                 } else {
                     drawPath(m.fill, landCol)
                     for (id in glow) level.countries[id]?.let { drawPath(it, hoverCol) }
                 }
-                drawPath(level.lakes, Night.water)
-                paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
-                drawPath(m.edge, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
+                drawPath(level.lakes, spec?.lakes ?: Night.water)
+                paths.rivers.forEach { drawPath(it, spec?.river ?: Night.river, style = Stroke(0.9f / s)) }
+                if (spec?.edgeByGroup != true) drawPath(m.edge, edge, style = Stroke(edgePx / s, join = StrokeJoin.Round))
                 // Landen die te klein zijn om te zien (eilandstaten) krijgen een stip.
                 val minPx = 5.dp.toPx()
                 for ((id, shape) in map.countries) {
@@ -224,8 +234,8 @@ fun NightMap(
                     val b = shape.bounds
                     if (maxOf(b.width, b.height) * s < minPx) {
                         val c = map.labels[id] ?: b.center
-                        val col = if (id in glow) glowColor else edgeCol
-                        drawCircle(Night.skyDeep, radius = 4.dp.toPx() / s, center = c)
+                        val col = if (id in glow) glowColor else edge
+                        drawCircle(spec?.sea ?: Night.skyDeep, radius = 4.dp.toPx() / s, center = c)
                         drawCircle(col, radius = 2.6.dp.toPx() / s, center = c)
                     }
                 }

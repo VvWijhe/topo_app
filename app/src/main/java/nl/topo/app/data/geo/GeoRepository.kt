@@ -108,6 +108,10 @@ class GeoRepository(private val assets: AssetManager) {
                 rivers = emptyMap(),
                 labels = raw.c.mapValues { Offset(it.value.lbl[0], it.value.lbl[1]) },
                 projection = proj,
+                continentOf = raw.c.mapNotNull { (code, c) ->
+                    c.cont.mapNotNull(Continent::of).sortedBy { primaryOrder(code, it) }.firstOrNull()?.let { code to it.code }
+                }.toMap(),
+                density = raw.c.mapNotNull { (code, c) -> c.area?.takeIf { it > 0 }?.let { code to (c.pop / it).toFloat() } }.toMap(),
             )
             val countries = raw.c.mapValues { (code, c) ->
                 Country(

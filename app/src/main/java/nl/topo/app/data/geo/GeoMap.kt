@@ -180,6 +180,10 @@ class GeoMap(
     /** Goede plek voor de naam van een land. */
     val labels: Map<String, Offset>,
     val projection: MapProjection,
+    /** Werelddeel per land (code als "EU"), voor de kaartstijlen Werelddelen en Neon. */
+    val continentOf: Map<String, String> = emptyMap(),
+    /** Inwoners per km² per land, voor de kaartstijl Inwoners/km². */
+    val density: Map<String, Float> = emptyMap(),
 ) {
     fun countryAt(p: Offset): String? = countries.entries.firstOrNull { it.value.contains(p) }?.key
 }

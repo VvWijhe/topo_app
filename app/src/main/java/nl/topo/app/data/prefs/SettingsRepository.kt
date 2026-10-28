@@ -14,8 +14,8 @@ enum class RoundLength { TEN, ALL }
 /** Thema: Nachtkaart (donker), Dagkaart (licht) of zoals de telefoon staat. */
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
-/** Hoe de kaart getekend wordt: Klassiek (één landkleur) of Atlas (elk land een eigen kleur). */
-enum class MapStyle { CLASSIC, ATLAS }
+/** Hoe de kaart getekend wordt. Elke stijl heeft een lichte en een donkere versie. */
+enum class MapStyle { CLASSIC, ATLAS, PARCHMENT, BLUEPRINT, NEON, CONTINENTS, DENSITY }
 
 data class Settings(
     val sound: Boolean = true,

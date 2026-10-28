@@ -114,10 +114,8 @@ fun OnboardingScreen(settings: Settings) {
                             Option(tr("Day map", "Dagkaart"), tr("Light, easy to read outdoors", "Licht, goed leesbaar buiten"), settings.theme == ThemeMode.LIGHT, swatch = DayPalette.sky to DayPalette.land) { scope.launch { app.settings.setTheme(ThemeMode.LIGHT) } }
                             Option(tr("Follow my phone", "Zoals mijn telefoon"), tr("Switches with your phone's dark mode", "Wisselt mee met de donkere modus van je telefoon"), settings.theme == ThemeMode.SYSTEM) { scope.launch { app.settings.setTheme(ThemeMode.SYSTEM) } }
                             Spacer(Modifier.height(4.dp))
-                            Eyebrow(tr("Map style", "Kaartstijl"))
-                            val pal = if (Night.isLight) DayPalette else NightPalette
-                            Option(tr("Classic", "Klassiek"), tr("One calm colour for all land", "Eén rustige kleur voor al het land"), settings.mapStyle == MapStyle.CLASSIC, swatch = pal.sky to pal.landHover) { scope.launch { app.settings.setMapStyle(MapStyle.CLASSIC) } }
-                            Option(tr("Atlas", "Atlas"), tr("Every country its own colour, like a school atlas", "Elk land een eigen kleur, zoals in een schoolatlas"), settings.mapStyle == MapStyle.ATLAS, swatch = pal.sky to pal.atlas.first()) { scope.launch { app.settings.setMapStyle(MapStyle.ATLAS) } }
+                            Eyebrow(tr("Map style · swipe to see them all", "Kaartstijl · veeg voor alle stijlen"))
+                            nl.topo.app.ui.components.MapStylePicker(settings.mapStyle, { st -> scope.launch { app.settings.setMapStyle(st) } })
                         }
                         2 -> {
                             Title(tr("How long is a round?", "Hoe lang is een ronde?"), tr("When you practise a topic, like the countries of Europe.", "Als je een onderwerp oefent, zoals de landen van Europa."))

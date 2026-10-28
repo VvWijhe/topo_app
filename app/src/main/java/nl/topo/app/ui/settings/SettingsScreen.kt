@@ -114,13 +114,8 @@ fun SettingsScreen() {
                 }
             }
             Divider()
-            SettingRow(Icons.Rounded.Map, tr("Map style", "Kaartstijl"),
-                if (s.mapStyle == MapStyle.ATLAS) tr("Atlas: every country its own colour", "Atlas: elk land een eigen kleur")
-                else tr("Classic: one calm land colour", "Klassiek: één rustige landkleur")) {
-                Segmented(listOf(tr("Classic", "Klassiek"), tr("Atlas", "Atlas")), s.mapStyle.ordinal) { i ->
-                    scope.launch { app.settings.setMapStyle(MapStyle.entries[i]) }
-                }
-            }
+            SettingRow(Icons.Rounded.Map, tr("Map style", "Kaartstijl"), tr("Swipe and tap to choose", "Veeg en tik om te kiezen"))
+            nl.topo.app.ui.components.MapStylePicker(s.mapStyle, { st -> scope.launch { app.settings.setMapStyle(st) } }, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp))
         }
 
         Section(tr("Playing", "Spelen")) {
