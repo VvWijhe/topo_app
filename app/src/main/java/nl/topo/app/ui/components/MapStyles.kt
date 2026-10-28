@@ -124,13 +124,13 @@ fun styleSpec(style: MapStyle, map: GeoMap, light: Boolean, atlas: Map<String, I
         MapStyle.NEON -> if (light) StyleSpec(
             sea = Color(0xFFFAFBFD),
             palette = listOf(Color(0xFF00A3B8), Color(0xFFD6249F), Color(0xFFD98A00), Color(0xFF5E9E00), Color(0xFF00B386), Color(0xFF6B4BE0)),
-            group = continentGroups(map), fillAlpha = 0.14f, edgeByGroup = true, edgeScale = 1.1f,
+            group = continentGroups(map), fillAlpha = 0.14f, edge = Color(0xFF8A94A6), edgeByGroup = true, edgeScale = 1.1f,
             graticule = Color(0x0F000000), decor = Color(0xFFF1F3F6), lakes = Color(0xFFFAFBFD), river = Color(0x6600A3B8),
             dim = 0.35f, base = Color(0xFFFAFBFD),
         ) else StyleSpec(
             sea = Color(0xFF05040A),
             palette = listOf(Color(0xFF00E5FF), Color(0xFFFF3DCB), Color(0xFFFFB300), Color(0xFFB4FF39), Color(0xFF33FFB0), Color(0xFF9B7BFF)),
-            group = continentGroups(map), fillAlpha = 0.10f, edgeByGroup = true, edgeScale = 1.1f,
+            group = continentGroups(map), fillAlpha = 0.10f, edge = Color(0xFF00E5FF), edgeByGroup = true, edgeScale = 1.1f,
             graticule = Color(0x14FFFFFF), decor = Color(0xFF0B0A14), lakes = Color(0xFF05040A), river = Color(0x6600E5FF),
             dim = 0.35f, base = Color(0xFF05040A),
         )
