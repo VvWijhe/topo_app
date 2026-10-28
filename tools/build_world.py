@@ -44,7 +44,7 @@ MERGE = {'ALD': 'FIN', 'CYN': 'CYP', 'SOL': 'SOM', 'KAS': 'IND'}
 EXTRA = {'USA', 'GBR', 'NZL', 'NLD', 'FRA', 'FIN', 'DNK', 'CHN', 'AUS', 'KOS', 'ISR', 'PSX', 'SAH', 'GRL'}
 MC_CODE = {'KOS': 'UNK', 'PSX': 'PSE', 'SAH': 'ESH', 'SDS': 'SSD'}
 OUT_CODE = {'PSX': 'PSE', 'SAH': 'ESH', 'SDS': 'SSD'}  # app-codes = ISO, behalve Kosovo (KOS)
-EUROPE = set('ISL NOR SWE FIN DNK EST LVA LTU IRL GBR NLD BEL LUX DEU POL CZE SVK AUT CHE LIE FRA MCO AND ESP PRT ITA SMR VAT MLT SVN HRV BIH SRB MNE KOS ALB MKD GRC BGR ROU MDA UKR BLR RUS HUN CYP TUR GEO ARM AZE'.split())
+EUROPE = set('ISL NOR SWE FIN DNK EST LVA LTU IRL GBR NLD BEL LUX DEU POL CZE SVK AUT CHE LIE FRA MCO AND ESP PRT ITA SMR VAT MLT SVN HRV BIH SRB MNE KOS ALB MKD GRC BGR ROU MDA UKR BLR RUS HUN CYP TUR'.split())  # Georgië, Armenië, Azerbeidzjan: alleen Azië (VN-indeling)
 CONT = {'Europe': 'EU', 'Asia': 'AS', 'Africa': 'AF', 'North America': 'NA', 'South America': 'SA', 'Oceania': 'OC'}
 SEVEN = {'MDV': 'AS', 'MUS': 'AF', 'SYC': 'AF'}
 
@@ -163,7 +163,7 @@ for a3, e in groups.items():
     if p['CONTINENT'] in CONT: cont.add(CONT[p['CONTINENT']])
     if a3 in SEVEN: cont.add(SEVEN[a3])
     if code in EUROPE: cont.add('EU')
-    if code in ('TUR', 'CYP', 'GEO', 'ARM', 'AZE', 'RUS'): cont.add('AS'); 
+    if code in ('TUR', 'CYP', 'RUS'): cont.add('AS'); 
     if code in ('TUR', 'CYP', 'GEO', 'ARM', 'AZE'): pass
     if code == 'RUS': cont |= {'EU', 'AS'}
     nb = []

@@ -113,10 +113,10 @@ object Content {
         available = true,
         kind = RegionKind.CONTINENT,
         continent = Continent.EU,
-        levelScope = listOf(Txt("best-known countries", "bekendste landen"), Txt("more countries", "meer landen"), Txt("almost all", "bijna alle landen"), Txt("all 50 countries", "alle 50 landen"), Txt("all 50 countries", "alle 50 landen")),
+        levelScope = listOf(Txt("best-known countries", "bekendste landen"), Txt("more countries", "meer landen"), Txt("almost all", "bijna alle landen"), Txt("all 47 countries", "alle 47 landen"), Txt("all 47 countries", "alle 47 landen")),
         groups = listOf(
             TopicGroup(
-                Txt("Countries", "Landen"), Txt("All about the 50 countries of Europe", "Alles over de 50 landen van Europa"),
+                Txt("Countries", "Landen"), Txt("All about the 47 countries of Europe", "Alles over de 47 landen van Europa"),
                 listOf(
                     tMap, tCapital, tCapitalMap, tFlag, tShape, tBorders,
                     topic("taal", "Language", "Taal", "Which language is official?", "Welke taal is officieel?", Icons.Rounded.Translate),

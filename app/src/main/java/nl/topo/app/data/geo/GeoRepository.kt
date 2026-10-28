@@ -140,7 +140,7 @@ class GeoRepository(private val assets: AssetManager) {
     /** Bij landen in twee werelddelen: welk telt als 'thuis'? Rusland → Europa, Turkije e.d. → Azië. */
     private fun primaryOrder(code: String, c: Continent): Int = when {
         code == "RUS" -> if (c == Continent.EU) 0 else 1
-        code in setOf("TUR", "CYP", "GEO", "ARM", "AZE") -> if (c == Continent.AS) 0 else 1
+        code in setOf("TUR", "CYP") -> if (c == Continent.AS) 0 else 1
         else -> c.ordinal
     }
 
