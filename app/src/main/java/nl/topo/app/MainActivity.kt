@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
                 else SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = bar, navigationBarStyle = bar)
             }
-            CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast) {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalLang provides settings.language, LocalHighContrast provides settings.highContrast, nl.topo.app.ui.theme.LocalMapStyle provides settings.mapStyle) {
                 TopoTheme(if (light) DayPalette else NightPalette) {
                     if (settings.onboarded) TopoApp() else OnboardingScreen(settings)
                 }

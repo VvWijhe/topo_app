@@ -18,6 +18,8 @@ data class Palette(
     val glow: Color, val glowDim: Color, val ember: Color, val gold: Color, val danger: Color, val mid: Color,
     /** Tekst op een accentkleur (knoppen). */
     val onAccent: Color,
+    /** Landkleuren voor de kaartstijl Atlas (buurlanden krijgen verschillende kleuren). */
+    val atlas: List<Color> = emptyList(),
 )
 
 /** Nachtkaart: diepblauwe nacht, land in zacht leisteen, gloeiend groen en oranje als accenten. */
@@ -34,6 +36,11 @@ val NightPalette = Palette(
     glow = Color(0xFF3BE8A0), glowDim = Color(0xFF1E7A57), ember = Color(0xFFFF9F43), gold = Color(0xFFFFC857),
     danger = Color(0xFFFF6B6B), mid = Color(0xFFF2C14E),
     onAccent = Color(0xFF050A14),
+    // Atlas bij nacht: diepe, gedempte kleuren, zodat de kaart donker blijft.
+    atlas = listOf(
+        Color(0xFF2E5577), Color(0xFF3A6450), Color(0xFF634A6E), Color(0xFF6A5636),
+        Color(0xFF2B5E63), Color(0xFF6A4343), Color(0xFF4A5277),
+    ),
 )
 
 /**
@@ -53,6 +60,11 @@ val DayPalette = Palette(
     glow = Color(0xFF0E9A69), glowDim = Color(0xFFBDEAD7), ember = Color(0xFFDD7414), gold = Color(0xFFB57F00),
     danger = Color(0xFFD23F3F), mid = Color(0xFFC0901A),
     onAccent = Color(0xFFFFFFFF),
+    // Atlas bij dag: zachte pastels zoals in een schoolatlas.
+    atlas = listOf(
+        Color(0xFFF3D3A3), Color(0xFFCDE4B0), Color(0xFFF1C0C0), Color(0xFFC6D8F1),
+        Color(0xFFE5CFEE), Color(0xFFF6E7A0), Color(0xFFBCE2DA),
+    ),
 )
 
 /**
@@ -99,4 +111,5 @@ object Night {
     val danger get() = palette.danger
     val mid get() = palette.mid
     val onAccent get() = palette.onAccent
+    val atlas get() = palette.atlas
 }

@@ -32,6 +32,9 @@ private val TopoShapes = Shapes(
     large = RoundedCornerShape(24.dp),
 )
 
+/** Kaartstijl (instelling); wordt in MainActivity gezet. */
+val LocalMapStyle = androidx.compose.runtime.staticCompositionLocalOf { nl.topo.app.data.prefs.MapStyle.CLASSIC }
+
 /** Kaart met hoog contrast (instelling); wordt in MainActivity gezet. */
 val LocalHighContrast = androidx.compose.runtime.staticCompositionLocalOf { false }
 

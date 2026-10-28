@@ -14,6 +14,9 @@ enum class RoundLength { TEN, ALL }
 /** Thema: Nachtkaart (donker), Dagkaart (licht) of zoals de telefoon staat. */
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
+/** Hoe de kaart getekend wordt: Klassiek (één landkleur) of Atlas (elk land een eigen kleur). */
+enum class MapStyle { CLASSIC, ATLAS }
+
 data class Settings(
     val sound: Boolean = true,
     val haptics: Boolean = true,
@@ -26,6 +29,7 @@ data class Settings(
     /** Standaard Engels. */
     val language: Lang = Lang.EN,
     val theme: ThemeMode = ThemeMode.DARK,
+    val mapStyle: MapStyle = MapStyle.CLASSIC,
     /** De introductie met de belangrijkste keuzes is doorlopen. */
     val onboarded: Boolean = false,
 )
@@ -40,6 +44,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val CONTRAST = booleanPreferencesKey("settings/contrast")
         val STRICT = booleanPreferencesKey("settings/strict")
         val THEME = stringPreferencesKey("settings/theme")
+        val MAP_STYLE = stringPreferencesKey("settings/mapStyle")
         val ONBOARDED = booleanPreferencesKey("settings/onboarded")
     }
 
@@ -53,6 +58,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             strictTyping = p[Keys.STRICT] ?: false,
             language = p[Keys.LANGUAGE]?.let { runCatching { Lang.valueOf(it) }.getOrNull() } ?: Lang.EN,
             theme = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+            mapStyle = p[Keys.MAP_STYLE]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: MapStyle.CLASSIC,
             onboarded = p[Keys.ONBOARDED] ?: false,
         )
     }
@@ -65,5 +71,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun setHighContrast(on: Boolean) { store.edit { it[Keys.CONTRAST] = on } }
     suspend fun setLanguage(lang: Lang) { store.edit { it[Keys.LANGUAGE] = lang.name } }
     suspend fun setTheme(mode: ThemeMode) { store.edit { it[Keys.THEME] = mode.name } }
+    suspend fun setMapStyle(style: MapStyle) { store.edit { it[Keys.MAP_STYLE] = style.name } }
     suspend fun setOnboarded(done: Boolean) { store.edit { it[Keys.ONBOARDED] = done } }
 }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.Contrast
@@ -64,6 +65,7 @@ import nl.topo.app.data.i18n.Lang
 import nl.topo.app.data.i18n.tr
 import nl.topo.app.data.prefs.RoundLength
 import nl.topo.app.data.prefs.ThemeMode
+import nl.topo.app.data.prefs.MapStyle
 import nl.topo.app.data.prefs.Settings
 import nl.topo.app.ui.LocalAppContainer
 import nl.topo.app.ui.components.Eyebrow
@@ -109,6 +111,14 @@ fun SettingsScreen() {
             SettingRow(Icons.Rounded.DarkMode, tr("Theme", "Thema"), tr("Night map, day map, or follow your phone", "Nachtkaart, dagkaart, of zoals je telefoon")) {
                 Segmented(listOf(tr("Night", "Nacht"), tr("Day", "Dag"), tr("Phone", "Telefoon")), s.theme.ordinal) { i ->
                     scope.launch { app.settings.setTheme(ThemeMode.entries[i]) }
+                }
+            }
+            Divider()
+            SettingRow(Icons.Rounded.Map, tr("Map style", "Kaartstijl"),
+                if (s.mapStyle == MapStyle.ATLAS) tr("Atlas: every country its own colour", "Atlas: elk land een eigen kleur")
+                else tr("Classic: one calm land colour", "Klassiek: één rustige landkleur")) {
+                Segmented(listOf(tr("Classic", "Klassiek"), tr("Atlas", "Atlas")), s.mapStyle.ordinal) { i ->
+                    scope.launch { app.settings.setMapStyle(MapStyle.entries[i]) }
                 }
             }
         }

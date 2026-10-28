@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import nl.topo.app.data.geo.GeoMap
 import nl.topo.app.ui.theme.LocalHighContrast
+import nl.topo.app.ui.theme.LocalMapStyle
+import nl.topo.app.data.prefs.MapStyle
+import androidx.compose.ui.graphics.lerp
 import nl.topo.app.ui.theme.Night
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -69,6 +72,29 @@ private class MapLevel(
 )
 
 private class MapPaths(val levels: List<MapLevel>, val rivers: List<Path>, val graticule: List<Path>)
+
+/**
+ * Kleur per land voor de stijl Atlas: buren (kaders die elkaar raken) krijgen verschillende kleuren.
+ * Hebzuchtig, drukste landen eerst; zelden nodig, maar anders de minst gebruikte kleur onder de buren.
+ */
+private fun atlasColors(map: GeoMap, n: Int): Map<String, Int> {
+    val ids = map.countries.keys.sorted()
+    val box = ids.associateWith { map.countries.getValue(it).bounds.inflate(1.5f) }
+    val nb = ids.associateWith { a -> ids.filter { b -> b != a && box.getValue(a).overlaps(box.getValue(b)) } }
+    val color = HashMap<String, Int>()
+    for (id in ids.sortedByDescending { nb.getValue(it).size }) {
+        val used = nb.getValue(id).mapNotNull { color[it] }
+        color[id] = (0 until n).firstOrNull { it !in used } ?: (0 until n).minBy { c -> used.count { it == c } }
+    }
+    return color
+}
+
+/** Atlas: per kleur één samengevoegd pad (zonder [skip]). */
+private fun mergeByColor(level: MapLevel, colors: Map<String, Int>, n: Int, skip: Set<String>): List<Path> {
+    val groups = List(n) { Path().apply { fillType = PathFillType.EvenOdd } }
+    for ((id, p) in level.countries) if (id !in skip) groups[(colors[id] ?: 0) % n].addPath(p)
+    return groups
+}
 
 /** Alle landen behalve [skip] samengevoegd tot één vlak en één grenslijn: veel sneller dan 200 losse paden. */
 private class Merged(val fill: Path, val edge: Path)
@@ -138,6 +164,11 @@ fun NightMap(
     val paths = remember(full, coarse, rivers, grat) { MapPaths(listOf(full) + coarse, rivers, grat) }
     // Samengevoegde paden per niveau, opnieuw bij een andere selectie.
     val merged = remember(paths, glow, borders) { arrayOfNulls<Merged>(paths.levels.size) }
+    // Atlas: elk land een eigen kleur. Niet in de uitdaging (borders != null): kleuren zouden de grenzen verraden.
+    val atlasPalette = Night.atlas
+    val atlas = LocalMapStyle.current == MapStyle.ATLAS && borders == null && atlasPalette.isNotEmpty()
+    val atlasColors = remember(map, atlasPalette.size) { if (atlasPalette.isEmpty()) emptyMap() else atlasColors(map, atlasPalette.size) }
+    val atlasMerged = remember(paths, glow, atlasColors) { arrayOfNulls<List<Path>>(paths.levels.size) }
     val hi = LocalHighContrast.current
     val landCol = if (hi) Night.landHi else Night.land
     val hoverCol = if (hi) Night.landHoverHi else Night.landHover
@@ -173,8 +204,16 @@ fun NightMap(
                 // Zonder grenzen ook geen kleurverschil met omliggend land, anders zie je toch de vorm.
                 drawPath(level.background, if (borders != null) landCol else decorCol)
                 if (borders == null) drawPath(level.background, edgeCol.copy(alpha = 0.5f), style = Stroke(borderPx * 0.8f / s, join = StrokeJoin.Round))
-                drawPath(m.fill, landCol)
-                for (id in glow) level.countries[id]?.let { drawPath(it, hoverCol) }
+                if (atlas) {
+                    // Is er een gebied gekozen, dan is de rest gedempt en het gebied in volle kleur.
+                    val groups = atlasMerged[li] ?: mergeByColor(level, atlasColors, atlasPalette.size, glow).also { atlasMerged[li] = it }
+                    val dim = if (glow.isEmpty()) 1f else 0.4f
+                    groups.forEachIndexed { i, g -> drawPath(g, lerp(landCol, atlasPalette[i], dim)) }
+                    for (id in glow) level.countries[id]?.let { drawPath(it, atlasPalette[(atlasColors[id] ?: 0) % atlasPalette.size]) }
+                } else {
+                    drawPath(m.fill, landCol)
+                    for (id in glow) level.countries[id]?.let { drawPath(it, hoverCol) }
+                }
                 drawPath(level.lakes, Night.water)
                 paths.rivers.forEach { drawPath(it, Night.river, style = Stroke(0.9f / s)) }
                 drawPath(m.edge, edgeCol, style = Stroke(borderPx / s, join = StrokeJoin.Round))
