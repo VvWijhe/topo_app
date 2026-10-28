@@ -143,7 +143,8 @@ fun NightMap(
     val hoverCol = if (hi) Night.landHoverHi else Night.landHover
     val edgeCol = if (hi) Night.landEdgeHi else Night.landEdge
     val decorCol = if (hi) Night.landDecorHi else Night.landDecor
-    val borderDp = if (hi) 2.dp else 1.5.dp
+    // Op de Dagkaart iets dunnere grenzen: donker op licht valt sneller op.
+    val borderDp = if (Night.isLight) (if (hi) 1.4.dp else 1.1.dp) else (if (hi) 2.dp else 1.5.dp)
     val tap by rememberUpdatedState(onTap)
 
     BoxWithConstraints(modifier.clipToBounds()) {

@@ -36,15 +36,19 @@ val NightPalette = Palette(
     onAccent = Color(0xFF050A14),
 )
 
-/** Dagkaart: lichtblauwe zee, crèmekleurig land, donkere tekst; dezelfde accenten, iets dieper voor contrast. */
+/**
+ * Dagkaart: rustige atlasstijl. Zachtblauwe zee, het gekozen gebied helder wit,
+ * de rest van de wereld zacht grijs; dunne leisteengrenzen en dezelfde accenten, iets dieper voor contrast.
+ */
 val DayPalette = Palette(
     isLight = true,
-    sky = Color(0xFFDCE9F4), skyDeep = Color(0xFFCFE0EE), skyHigh = Color(0xFFEAF2FA),
-    surface = Color(0xFFFFFFFF), surfaceHigh = Color(0xFFF0F4F9), surfaceHighest = Color(0xFFE3EAF2),
-    outline = Color(0xFFC6D3E1), outlineSoft = Color(0xFFDCE5EE),
-    land = Color(0xFFF7F2E6), landHover = Color(0xFFEDE1C4), landEdge = Color(0xFF7A8DA3), landDecor = Color(0xFFE6E0D2),
-    water = Color(0xFFCFE2F0), river = Color(0xFF6FA6D2), graticule = Color(0xFFC7DAEA),
-    landHi = Color(0xFFFFFFFF), landHoverHi = Color(0xFFF2E2B6), landEdgeHi = Color(0xFF1E2C3C), landDecorHi = Color(0xFFDCD5C5),
+    sky = Color(0xFFD6E6F3), skyDeep = Color(0xFFCADDEE), skyHigh = Color(0xFFE6F0F8),
+    surface = Color(0xFFFFFFFF), surfaceHigh = Color(0xFFF1F5F9), surfaceHighest = Color(0xFFE4EBF2),
+    outline = Color(0xFFCAD5E1), outlineSoft = Color(0xFFDDE5ED),
+    land = Color(0xFFE3E8EE), landHover = Color(0xFFFFFFFF), landEdge = Color(0xFF9AACBF), landDecor = Color(0xFFDCE2E9),
+    water = Color(0xFFCDE1F1), river = Color(0xFF8FBCE0), graticule = Color(0xFFC4D8EA),
+    // Hoog contrast: zelfde rust, maar duidelijkere (donker leisteen) grenzen.
+    landHi = Color(0xFFEDF1F5), landHoverHi = Color(0xFFFFFFFF), landEdgeHi = Color(0xFF52657B), landDecorHi = Color(0xFFE0E6EC),
     text = Color(0xFF122030), muted = Color(0xFF4F6176), faint = Color(0xFF8395A8),
     glow = Color(0xFF0E9A69), glowDim = Color(0xFFBDEAD7), ember = Color(0xFFDD7414), gold = Color(0xFFB57F00),
     danger = Color(0xFFD23F3F), mid = Color(0xFFC0901A),
