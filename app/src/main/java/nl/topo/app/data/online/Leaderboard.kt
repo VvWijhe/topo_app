@@ -47,6 +47,9 @@ data class LeaderboardEntry(
 
 enum class Period { DAY, WEEK }
 
+/** Uitslag van een bijnaam kiezen. */
+enum class NameResult { OK, TAKEN, INVALID, OFFLINE }
+
 /** Samenvatting van iemands voortgang, voor vrienden. [regions]: gebied -> aantal gekende vakjes. */
 data class PlayerStats(
     val playerId: String,
@@ -102,6 +105,12 @@ interface LeaderboardService {
     /** Bijnaam ook bij je vriendcode bijwerken. */
     suspend fun syncNickname() {}
 
+    /** Kies een bijnaam. Online moet hij uniek zijn (hoofdletters tellen niet); leeg = anoniem. */
+    suspend fun claimNickname(name: String): NameResult
+
+    /** Een eerder (vóór de uniekheid) gekozen bijnaam alsnog vastleggen; is hij al bezet, dan wordt hij leeg. */
+    suspend fun ensureNicknameClaimed() {}
+
     /** Jouw voortgang online zetten, zodat vrienden hem kunnen zien. */
     suspend fun publishStats(stats: PlayerStats) {}
 
@@ -153,11 +162,33 @@ class PlayerProfile(private val store: DataStore<Preferences>) {
     suspend fun setFriendCode(code: String?) { store.edit { if (code == null) it.remove(codeKey) else it[codeKey] = code } }
 
     suspend fun setNickname(name: String) {
-        val clean = name.trim().replace(Regex("\\s+"), " ").take(MAX_NAME)
-        store.edit { it[nameKey] = clean }
+        store.edit { it[nameKey] = clean(name) }
     }
 
-    companion object { const val MAX_NAME = 20 }
+    /** Welke naam (in kleine letters) online op jouw naam staat; null = (nog) niet geclaimd. */
+    private val claimKey = stringPreferencesKey("online/nameClaim")
+    suspend fun nameClaim(): String? = store.data.first()[claimKey]
+    suspend fun setNameClaim(key: String?) { store.edit { if (key == null) it.remove(claimKey) else it[claimKey] = key } }
+
+    /** De bijnaam zoals die online mag: alleen als hij echt van jou is, anders leeg (anoniem). */
+    suspend fun claimedNickname(): String {
+        val n = currentNickname()
+        return if (n.isNotEmpty() && nameClaim() == key(n)) n else ""
+    }
+
+    companion object {
+        const val MAX_NAME = 20
+        private val allowed = Regex("^[\\p{L}\\p{N} _.-]{1,20}$")
+
+        /** Spaties opruimen en inkorten. */
+        fun clean(name: String) = name.trim().replace(Regex("\\s+"), " ").take(MAX_NAME)
+
+        /** Letters, cijfers, spatie, - _ . en minstens één letter of cijfer. */
+        fun valid(name: String) = allowed.matches(name) && name.any { it.isLetterOrDigit() }
+
+        /** Sleutel voor uniekheid: hoofdletters tellen niet ("Kaartkoning" = "kaartkoning"). */
+        fun key(name: String) = clean(name).lowercase(java.util.Locale.ROOT)
+    }
 }
 
 /**
@@ -188,6 +219,13 @@ class OfflineLeaderboard(private val store: DataStore<Preferences>, private val 
             p[allKey] = json.encodeToString(ser, all + s)
             p[pendingKey] = json.encodeToString(ser, decode(p[pendingKey]) + s)
         }
+    }
+
+    override suspend fun claimNickname(name: String): NameResult {
+        val clean = PlayerProfile.clean(name)
+        if (clean.isNotEmpty() && !PlayerProfile.valid(clean)) return NameResult.INVALID
+        profile.setNickname(clean)
+        return NameResult.OK
     }
 
     override suspend fun myFriendCode(): String? = null

@@ -1,47 +1,87 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Ranglijst van de dagelijkse uitdaging: iedereen (ingelogd) mag lezen,
-    // je mag alleen je eigen uitslag één keer insturen, en je eigen uitslagen verwijderen.
+
+    // ---------- hulpfuncties ----------
+
+    function signedIn() { return request.auth != null; }
+
+    // Bijnaam: leeg (anoniem) of een naam die in /names op jouw ID staat. Zo kan niemand zich voordoen als een ander.
+    function ownName(n) {
+      return n is string && n.size() <= 20 && (n == '' ||
+        (exists(/databases/$(database)/documents/names/$(n.lower())) &&
+         get(/databases/$(database)/documents/names/$(n.lower())).data.uid == request.auth.uid));
+    }
+
+    // Dag (epoch-dag) rond de servertijd: geen uitslagen voor morgen of lang geleden.
+    function aroundToday(day) {
+      let today = math.floor(request.time.toMillis() / 86400000);
+      return day is int && day >= today - 1 && day <= today + 1;
+    }
+
+    // ---------- uitslagen van de dagelijkse uitdaging ----------
     match /scores/{id} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['playerId', 'nickname', 'day', 'difficulty', 'points', 'found', 'total', 'mistakes', 'hints', 'timeMs', 'completed', 'submittedAt'])
         && request.resource.data.playerId == request.auth.uid
         && id == string(request.resource.data.day) + '_' + request.resource.data.difficulty + '_' + request.auth.uid
-        && request.resource.data.keys().hasOnly(['playerId', 'nickname', 'day', 'difficulty', 'points', 'found', 'total', 'mistakes', 'hints', 'timeMs', 'completed', 'submittedAt'])
         && request.resource.data.difficulty in ['EASY', 'HARD']
-        && request.resource.data.day is int
-        && request.resource.data.points is int && request.resource.data.points >= 0 && request.resource.data.points <= 5000
-        && request.resource.data.found is int && request.resource.data.total is int
-        && request.resource.data.found >= 0 && request.resource.data.found <= request.resource.data.total && request.resource.data.total <= 250
-        && request.resource.data.timeMs is int && request.resource.data.timeMs >= 0
-        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
-      allow delete: if request.auth != null && resource.data.playerId == request.auth.uid;
-    }
-    // Voortgang per speler (voor vrienden): opvragen op ID mag, alleen je eigen schrijven.
-    match /players/{uid} {
-      allow get: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['nickname', 'points', 'streak', 'rounds', 'mastered', 'regions', 'updatedAt'])
-        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20
+        && aroundToday(request.resource.data.day)
+        // Hoogst haalbare punten per moeilijkheid (met dagbonus), met wat marge.
         && request.resource.data.points is int && request.resource.data.points >= 0
-        && request.resource.data.regions is map;
-      allow delete: if request.auth != null && request.auth.uid == uid;
+        && request.resource.data.points <= (request.resource.data.difficulty == 'EASY' ? 300 : 900)
+        && request.resource.data.found is int && request.resource.data.total is int
+        && request.resource.data.found >= 0 && request.resource.data.found <= request.resource.data.total && request.resource.data.total <= 40
+        && request.resource.data.mistakes is int && request.resource.data.mistakes >= 0 && request.resource.data.mistakes <= 100
+        && request.resource.data.hints is int && request.resource.data.hints >= 0 && request.resource.data.hints <= 100
+        && request.resource.data.timeMs is int && request.resource.data.timeMs >= 0 && request.resource.data.timeMs <= 86400000
+        && request.resource.data.completed is bool
+        && request.resource.data.submittedAt is int
+        && ownName(request.resource.data.nickname);
+      allow delete: if signedIn() && resource.data.playerId == request.auth.uid;
     }
-    // Vriendcodes: opzoeken op code mag (geen lijst opvragen); alleen je eigen code maken/wijzigen/wissen.
+
+    // ---------- unieke bijnamen: document-ID = naam in kleine letters ----------
+    match /names/{name} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && name == name.lower()
+        && name.matches('^[\\p{L}\\p{N} _.-]{1,20}$');
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- voortgang per speler (voor vrienden) ----------
+    match /players/{uid} {
+      allow get: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'points', 'streak', 'rounds', 'mastered', 'regions', 'updatedAt'])
+        && ownName(request.resource.data.nickname)
+        && request.resource.data.points is int && request.resource.data.points >= 0 && request.resource.data.points <= 100000000
+        && request.resource.data.streak is int && request.resource.data.streak >= 0 && request.resource.data.streak <= 100000
+        && request.resource.data.rounds is int && request.resource.data.rounds >= 0
+        && request.resource.data.mastered is int && request.resource.data.mastered >= 0 && request.resource.data.mastered <= 10000
+        && request.resource.data.regions is map && request.resource.data.regions.size() <= 20
+        && request.resource.data.updatedAt is int;
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---------- vriendcodes: opzoeken op code mag, een lijst opvragen niet ----------
     match /codes/{code} {
-      allow get: if request.auth != null;
-      allow create: if request.auth != null
-        && code.size() == 6
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && code.matches('^[A-Z2-9]{6}$')
         && request.resource.data.keys().hasOnly(['uid', 'nickname'])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
-      allow update: if request.auth != null
+        && ownName(request.resource.data.nickname);
+      allow update: if signedIn()
         && resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid', 'nickname'])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.nickname is string && request.resource.data.nickname.size() <= 20;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+        && ownName(request.resource.data.nickname);
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
   }
 }

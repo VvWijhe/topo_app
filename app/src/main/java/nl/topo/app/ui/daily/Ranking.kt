@@ -233,6 +233,9 @@ fun NicknameDialog(onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val current by app.profile.nickname.collectAsStateWithLifecycle("")
     var text by remember(current) { mutableStateOf(current) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    val lang = LocalLang.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Night.surfaceHigh,
@@ -250,10 +253,23 @@ fun NicknameDialog(onDismiss: () -> Unit) {
                     ),
                 )
                 Eyebrow("${text.trim().length}/${PlayerProfile.MAX_NAME}")
+                nameError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Night.danger) }
+                Text(tr("Names are unique: nobody else can use yours.", "Namen zijn uniek: niemand anders kan de jouwe gebruiken."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
             }
         },
         confirmButton = {
-            TextButton(enabled = text.isNotBlank(), onClick = { scope.launch { app.profile.setNickname(text); app.scope.launch { app.leaderboard.syncNickname() }; onDismiss() } }) {
+            TextButton(enabled = text.isNotBlank() && !saving, onClick = {
+                saving = true; nameError = null
+                scope.launch {
+                    when (app.leaderboard.claimNickname(text)) {
+                        nl.topo.app.data.online.NameResult.OK -> onDismiss()
+                        nl.topo.app.data.online.NameResult.TAKEN -> nameError = lang.t("That name is already taken. Try another one.", "Die naam is al bezet. Probeer een andere.")
+                        nl.topo.app.data.online.NameResult.INVALID -> nameError = lang.t("Use letters, numbers, spaces and - _ . only.", "Gebruik alleen letters, cijfers, spaties en - _ .")
+                        nl.topo.app.data.online.NameResult.OFFLINE -> nameError = lang.t("Couldn't check the name (no internet?). Try again.", "Kon de naam niet controleren (geen internet?). Probeer het nog eens.")
+                    }
+                    saving = false
+                }
+            }) {
                 Text(tr("Save", "Opslaan"), color = Night.glow)
             }
         },

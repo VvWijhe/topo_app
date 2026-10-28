@@ -40,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -79,9 +80,20 @@ fun OnboardingScreen(settings: Settings) {
     var step by rememberSaveable { mutableStateOf(0) }
     var name by rememberSaveable { mutableStateOf("") }
 
+    var nameError by remember { mutableStateOf<String?>(null) }
+    val lang = nl.topo.app.data.i18n.LocalLang.current
     fun finish() {
         scope.launch {
-            if (name.isNotBlank()) { app.profile.setNickname(name); app.scope.launch { app.leaderboard.syncNickname() } }
+            if (name.isNotBlank()) {
+                val msg = when (app.leaderboard.claimNickname(name)) {
+                    nl.topo.app.data.online.NameResult.OK -> null
+                    nl.topo.app.data.online.NameResult.TAKEN -> lang.t("That name is already taken. Try another one.", "Die naam is al bezet. Probeer een andere.")
+                    nl.topo.app.data.online.NameResult.INVALID -> lang.t("Use letters, numbers, spaces and - _ . only.", "Gebruik alleen letters, cijfers, spaties en - _ .")
+                    // Geen internet: niet blokkeren, de naam wordt later alsnog vastgelegd.
+                    nl.topo.app.data.online.NameResult.OFFLINE -> { app.profile.setNickname(name); null }
+                }
+                if (msg != null) { nameError = msg; step = STEPS - 1; return@launch }
+            }
             app.settings.setOnboarded(true)
         }
     }
@@ -155,6 +167,8 @@ fun OnboardingScreen(settings: Settings) {
                                     cursorColor = Night.glow, focusedTextColor = Night.text, unfocusedTextColor = Night.text,
                                 ),
                             )
+                            nameError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Night.danger) }
+                            Text(tr("Names are unique: nobody else can use yours.", "Namen zijn uniek: niemand anders kan de jouwe gebruiken."), style = MaterialTheme.typography.bodySmall, color = Night.faint)
                         }
                     }
                 }

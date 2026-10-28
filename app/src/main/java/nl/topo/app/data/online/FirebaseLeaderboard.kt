@@ -60,12 +60,13 @@ class FirebaseLeaderboard(
         runCatching {
             withTimeout(15_000) {
                 val me = uid()
-                val name = profile.currentNickname()
+                val name = profile.claimedNickname()
                 for (s in queue) {
                     val ref = scores.document("${s.day}_${s.difficulty}_$me")
                     val data = mapOf(
                         "playerId" to me,
-                        "nickname" to (s.nickname.ifBlank { name }).take(PlayerProfile.MAX_NAME),
+                        // Altijd de naam die nu echt van jou is (oude, niet-geclaimde namen gaan niet mee).
+                        "nickname" to name,
                         "day" to s.day,
                         "difficulty" to s.difficulty,
                         "points" to s.points.coerceAtLeast(0),
@@ -81,9 +82,12 @@ class FirebaseLeaderboard(
                         ref.set(data).await()
                         sent += s
                     } catch (e: FirebaseFirestoreException) {
-                        // Al eerder verstuurd (overschrijven mag niet): dan is hij er dus al.
-                        if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED && ref.get().await().exists()) sent += s
-                        else throw e
+                        // Geweigerd: al eerder verstuurd (overschrijven mag niet), of te oud/ongeldig volgens de regels.
+                        // In beide gevallen niet blijven proberen.
+                        if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            if (!ref.get().await().exists()) Log.w(TAG, "Uitslag geweigerd door de regels; overgeslagen (dag ${s.day})")
+                            sent += s
+                        } else throw e
                     }
                 }
             }
@@ -150,9 +154,11 @@ class FirebaseLeaderboard(
                 scores.whereEqualTo("playerId", me).get().await().documents.forEach { it.reference.delete().await() }
                 profile.friendCode()?.let { codes.document(it).delete().await() }
                 players.document(me).delete().await()
+                profile.nameClaim()?.let { runCatching { names.document(it).delete().await() } }
             }
         }
         profile.setFriendCode(null)
+        profile.setNameClaim(null)
         local.deleteMyData()
     }
 
@@ -164,7 +170,7 @@ class FirebaseLeaderboard(
         withTimeout(15_000) {
             profile.friendCode()?.let { return@withTimeout it }
             val me = uid()
-            val name = profile.currentNickname()
+            val name = profile.claimedNickname()
             var made: String? = null
             repeat(8) {
                 if (made != null) return@repeat
@@ -198,7 +204,7 @@ class FirebaseLeaderboard(
                 val me = uid()
                 players.document(me).set(
                     mapOf(
-                        "nickname" to stats.nickname.take(PlayerProfile.MAX_NAME),
+                        "nickname" to profile.claimedNickname(),
                         "points" to stats.points.coerceAtLeast(0),
                         "streak" to stats.streak,
                         "rounds" to stats.rounds,
@@ -233,12 +239,56 @@ class FirebaseLeaderboard(
         }
     }.getOrElse { Log.w(TAG, "Voortgang vrienden ophalen mislukt", it); emptyMap() }
 
+    private val names get() = db.collection("names")
+
+    override suspend fun claimNickname(name: String): NameResult {
+        val clean = PlayerProfile.clean(name)
+        if (clean.isEmpty()) {
+            // Anoniem: oude naam vrijgeven
+            runCatching { withTimeout(10_000) { uid(); profile.nameClaim()?.let { names.document(it).delete().await() } } }
+            profile.setNameClaim(null); profile.setNickname("")
+            syncNickname()
+            return NameResult.OK
+        }
+        if (!PlayerProfile.valid(clean)) return NameResult.INVALID
+        val key = PlayerProfile.key(clean)
+        return try {
+            withTimeout(10_000) {
+                val me = uid()
+                val ref = names.document(key)
+                val d = ref.get().await()
+                if (d.exists() && d.getString("uid") != me) return@withTimeout NameResult.TAKEN
+                if (!d.exists()) {
+                    try { ref.set(mapOf("uid" to me)).await() }
+                    catch (e: FirebaseFirestoreException) {
+                        // net iemand anders voor (of verboden): dan is hij bezet
+                        if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) return@withTimeout NameResult.TAKEN else throw e
+                    }
+                }
+                val old = profile.nameClaim()
+                if (old != null && old != key) runCatching { names.document(old).delete().await() }
+                profile.setNameClaim(key)
+                profile.setNickname(clean)
+                NameResult.OK
+            }.also { if (it == NameResult.OK) syncNickname() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Bijnaam vastleggen mislukt", e)
+            NameResult.OFFLINE
+        }
+    }
+
+    override suspend fun ensureNicknameClaimed() {
+        val n = profile.currentNickname()
+        if (n.isEmpty() || profile.nameClaim() == PlayerProfile.key(n)) return
+        if (claimNickname(n) == NameResult.TAKEN) profile.setNickname("")
+    }
+
     override suspend fun syncNickname() {
         runCatching {
             withTimeout(10_000) {
                 val code = profile.friendCode() ?: return@withTimeout
                 uid()
-                codes.document(code).update("nickname", profile.currentNickname()).await()
+                codes.document(code).update("nickname", profile.claimedNickname()).await()
             }
         }
     }
@@ -254,7 +304,7 @@ class FirebaseLeaderboard(
             if (BuildConfig.FIREBASE_PROJECT_ID.isBlank()) return null
             FirebaseApp.getApps(context).firstOrNull()?.let { return it }
             return runCatching {
-                FirebaseApp.initializeApp(
+                val app = FirebaseApp.initializeApp(
                     context,
                     FirebaseOptions.Builder()
                         .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
@@ -262,6 +312,12 @@ class FirebaseLeaderboard(
                         .setApiKey(BuildConfig.FIREBASE_API_KEY)
                         .build(),
                 )
+                // App Check: alleen de echte app uit de Play Store mag de database gebruiken (Play Integrity).
+                // De dev-versie van GitHub doet niet mee; die werkt online niet meer zodra App Check wordt afgedwongen.
+                if (!BuildConfig.DEBUG) com.google.firebase.appcheck.FirebaseAppCheck.getInstance(app).installAppCheckProviderFactory(
+                    com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance(),
+                )
+                app
             }.onFailure { Log.w(TAG, "Firebase starten mislukt", it) }.getOrNull()
         }
     }

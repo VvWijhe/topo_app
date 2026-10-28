@@ -40,7 +40,11 @@ class MainActivity : ComponentActivity() {
         splash.setKeepOnScreenCondition { !ready }
         lifecycleScope.launch { container.progress.migrateToFiveLevels() }
         // Uitslagen die nog in de wachtrij staan (bijv. gespeeld zonder internet) alsnog versturen.
-        lifecycleScope.launch { runCatching { container.leaderboard.flush() } }
+        lifecycleScope.launch {
+            // Eerst een oude bijnaam alsnog uniek vastleggen, dan de wachtrij versturen.
+            runCatching { container.leaderboard.ensureNicknameClaimed() }
+            runCatching { container.leaderboard.flush() }
+        }
         // Voortgang delen met vrienden: na elke wijziging (even wachten, zodat niet elke tik een verzoek wordt).
         if (container.leaderboard.isOnline) lifecycleScope.launch {
             kotlinx.coroutines.flow.combine(container.progress.progress, container.profile.nickname) { pr, name ->
