@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 @Serializable
@@ -71,6 +72,9 @@ private data class NederlandJson(val vb: List<Float>, val prov: Map<String, Stri
 class NederlandMap(val geo: GeoMap, val islands: Map<String, GeoShape>)
 
 /** Laadt kaartdata uit de app-assets en houdt ze in het geheugen. */
+@Serializable
+private data class FlagJson(val c: List<String> = emptyList(), val t: List<String> = emptyList(), val z: List<List<Float>> = emptyList(), val r: Float = 1.5f)
+
 class GeoRepository(private val assets: AssetManager) {
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
@@ -133,10 +137,19 @@ class GeoRepository(private val assets: AssetManager) {
             val continents = raw.cont.mapNotNull { (k, v) ->
                 Continent.of(k)?.let { it to ContinentInfo(it, Txt(en = v.ne, nl = v.n), Rect(v.v[0], v.v[1], v.v[2], v.v[3]), Offset(v.c[0], v.c[1])) }
             }.toMap()
+            // Vlagkenmerken (kleuren, vormen, uitsneden), op ISO2-code; zie tools/flag_data.py
+            val flagRaw = runCatching {
+                val t = assets.open("flags/flagdata.json").bufferedReader().use { it.readText() }
+                json.decodeFromString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), FlagJson.serializer()), t)
+            }.getOrDefault(emptyMap())
+            val flags = countries.values.mapNotNull { c ->
+                flagRaw[c.iso2.uppercase()]?.let { f -> c.code to FlagInfo(f.c.toSet(), f.t.toSet(), f.z.map { Offset(it[0], it[1]) }, f.r) }
+            }.toMap()
             WorldMap(
                 geo, countries, continents,
                 rivers = raw.riv.mapValues { parsePath(it.value) },
                 tld = raw.c.mapNotNull { (k, v) -> v.tld?.let { k to it } }.toMap(),
+                flags = flags,
             )
         }.also { world = it }
     }

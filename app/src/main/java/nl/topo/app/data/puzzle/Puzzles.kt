@@ -11,7 +11,7 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /** De puzzelsoorten. */
-enum class PuzzleKind { ROUTE, MYSTERY }
+enum class PuzzleKind { ROUTE, MYSTERY, FLAG_ZOOM, FLAG_CLUES }
 
 /** Landgrenzen als graaf, zonder overzeese verbindingen die verwarren (Sint-Maarten, Frans-Guyana). */
 object Borders {

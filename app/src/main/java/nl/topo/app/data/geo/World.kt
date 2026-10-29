@@ -49,6 +49,14 @@ data class Country(
         }
 }
 
+/**
+ * Kenmerken van een vlag.
+ * [colors]: red, white, blue, green, yellow, black, orange. [tags]: h, v, cross, nordic, union, star, crescent, sun,
+ * circle, triangle, diagonal, emblem, animal, weapon, plant, text, map, building.
+ * [spots]: interessante punten (0..1) voor een uitsnede; [ratio]: breedte/hoogte.
+ */
+data class FlagInfo(val colors: Set<String>, val tags: Set<String>, val spots: List<Offset>, val ratio: Float)
+
 data class ContinentInfo(val continent: Continent, val names: Txt, val viewport: Rect, val center: Offset) {
     fun name(lang: Lang): String = names[lang]
 }
@@ -61,6 +69,8 @@ class WorldMap(
     val rivers: Map<String, GeoShape> = emptyMap(),
     /** Internetextensie per land (.nl). */
     val tld: Map<String, String> = emptyMap(),
+    /** Vlagkenmerken per land (ISO3-code). */
+    val flags: Map<String, FlagInfo> = emptyMap(),
 ) {
     /** Hele wereld, zonder Antarctica. */
     val worldViewport: Rect = Rect(0f, geo.height * 0.04f, geo.width, geo.height * 0.84f)

@@ -131,6 +131,18 @@ fun PuzzleScreen(kind: PuzzleKind, hard: Boolean = false, onBack: () -> Unit) {
                 RouteGame(w, p, PuzzleState(), tr("Route", "Route") + " · " + (if (hard) tr("hard", "moeilijk") else tr("easy", "makkelijk")), save, finish, onBack, footer)
             }
         }
+        PuzzleKind.FLAG_ZOOM -> {
+            val p = remember(w, seed) { nl.topo.app.data.puzzle.FlagZoomPuzzle.generate(w, Random(seed), hard) }
+            androidx.compose.runtime.key(seed) {
+                FlagZoomGame(w, p, tr("Flag close-up", "Vlag van dichtbij") + " · " + (if (hard) tr("hard", "moeilijk") else tr("easy", "makkelijk")), hard, finish, onBack, footer)
+            }
+        }
+        PuzzleKind.FLAG_CLUES -> {
+            val p = remember(w, seed) { nl.topo.app.data.puzzle.FlagCluesPuzzle.generate(w, Random(seed), hard) }
+            androidx.compose.runtime.key(seed) {
+                FlagCluesGame(w, p, tr("Flag description", "Vlag-omschrijving") + " · " + (if (hard) tr("hard", "moeilijk") else tr("easy", "makkelijk")), hard, finish, onBack, footer)
+            }
+        }
         PuzzleKind.MYSTERY -> {
             val p = remember(w, seed) { MysteryPuzzle.generate(w, Random(seed)) }
             androidx.compose.runtime.key(seed) {
@@ -428,7 +440,7 @@ private fun MysteryMap(w: WorldMap, p: MysteryPuzzle, clues: List<MysteryPuzzle.
 // ============================ gedeeld ============================
 
 @Composable
-private fun PuzzleLayout(
+internal fun PuzzleLayout(
     eyebrow: String, title: String, subtitle: String, onBack: () -> Unit,
     map: @Composable () -> Unit,
     content: @Composable () -> Unit,
@@ -485,7 +497,7 @@ private fun PuzzleMap(
 
 /** Invoerveld: typ een land; bekende landen gaan naar [onCountry], onbekende namen geven een melding. */
 @Composable
-private fun CountryInput(w: WorldMap, onCountry: (Country) -> Unit) {
+internal fun CountryInput(w: WorldMap, onCountry: (Country) -> Unit) {
     val app = LocalAppContainer.current
     val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
     var text by remember { mutableStateOf("") }
@@ -517,7 +529,7 @@ private fun CountryInput(w: WorldMap, onCountry: (Country) -> Unit) {
 }
 
 @Composable
-private fun Chips(w: WorldMap, items: List<Pair<String, Color>>) {
+internal fun Chips(w: WorldMap, items: List<Pair<String, Color>>) {
     val lang = LocalLang.current
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items.reversed().forEach { (code, col) ->
@@ -535,7 +547,7 @@ private fun Chips(w: WorldMap, items: List<Pair<String, Color>>) {
 }
 
 @Composable
-private fun Result(outcome: RoundOutcome?, stored: PuzzleState, footer: @Composable () -> Unit) {
+internal fun Result(outcome: RoundOutcome?, stored: PuzzleState, footer: @Composable () -> Unit) {
     outcome?.let { PointsPanel(it) } ?: run {
         if (stored.finished) Text(tr("Points earned: +${stored.points}", "Punten verdiend: +${stored.points}"), style = MaterialTheme.typography.bodyMedium, color = Night.gold)
     }

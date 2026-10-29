@@ -39,7 +39,7 @@ data class Challenge(
     /** Bij [Kind.MYSTERY]: het mysterieland. */
     val mystery: MysteryPuzzle? = null,
 ) {
-    enum class Kind { NEIGHBOURS, LINE, LETTER, TOP, ROUTE, MYSTERY }
+    enum class Kind { NEIGHBOURS, LINE, LETTER, TOP, ROUTE, MYSTERY, FLAG_FEATURE }
 
     val isPuzzle: Boolean get() = kind == Kind.ROUTE || kind == Kind.MYSTERY
 }
@@ -96,12 +96,33 @@ object DailyChallenges {
                 blank(Challenge.Kind.ROUTE, Txt("Travel from ${a.names.en} to ${b.names.en}", "Reis van ${a.names.nl} naar ${b.names.nl}"), emptyList(), r.viewport(w))
                     .copy(route = r)
             }
+            Challenge.Kind.FLAG_FEATURE -> flagFeature(w, difficulty, rnd)
             Challenge.Kind.MYSTERY -> {
                 val m = MysteryPuzzle.generate(w, rnd)
                 blank(Challenge.Kind.MYSTERY, Txt("Find the mystery country", "Vind het mysterieland"), emptyList(), w.worldViewport).copy(mystery = m)
             }
         }
         return c.copy(difficulty = difficulty)
+    }
+
+    // ---------------- vlagkenmerken ----------------
+
+    private fun flagFeature(w: WorldMap, d: Difficulty, rnd: Random): Challenge {
+        val (rule, where, targets) = nl.topo.app.data.puzzle.FlagFeatures.pick(w, rnd, hard = d == Difficulty.HARD)
+        val place = where?.let { w.continents[it]?.names }
+        val inEn = place?.let { " in ${it.en}" } ?: " in the world"
+        val inNl = place?.let { " in ${it.nl}" } ?: " ter wereld"
+        val title = when (rule) {
+            is nl.topo.app.data.puzzle.FlagFeatures.Has -> rule.title.let { Txt("Name every country$inEn whose flag has ${it.en}", "Noem alle landen$inNl met ${it.nl} in de vlag") }
+            is nl.topo.app.data.puzzle.FlagFeatures.HasColor -> nl.topo.app.data.puzzle.FlagWords.color(rule.color).let {
+                Txt("Name every country$inEn with ${it.en} in its flag", "Noem alle landen$inNl met ${it.nl} in de vlag")
+            }
+            is nl.topo.app.data.puzzle.FlagFeatures.OnlyColors -> nl.topo.app.data.puzzle.FlagWords.colors(nl.topo.app.data.puzzle.FlagWords.colorOrder.filter { it in rule.colors }).let {
+                Txt("Name every country$inEn whose flag is only ${it.en}", "Noem alle landen$inNl met een vlag in alleen ${it.nl}")
+            }
+        }
+        val vp = where?.let { w.continents[it]?.viewport } ?: w.worldViewport
+        return blank(Challenge.Kind.FLAG_FEATURE, title, targets, vp)
     }
 
     private fun blank(kind: Challenge.Kind, title: Txt, targets: List<String>, viewport: Rect, subject: String? = null, line: GlobeLine? = null) =

@@ -68,7 +68,7 @@ object Routes {
     const val DAILY_PLAY = "daily/{difficulty}"
     const val PRACTICE = "practice"
     const val PRACTICE_PLAY = "practice/{kind}/{difficulty}"
-    fun practicePlay(kind: Challenge.Kind, d: Difficulty) = "practice/${kind.name}/${d.name}"
+    fun practicePlay(kind: String, d: Difficulty) = "practice/$kind/${d.name}"
     fun dailyPlay(d: Difficulty) = "daily/${d.name}"
     fun region(id: RegionId) = "region/${id.name}"
     fun quiz(id: RegionId, topic: String, level: Int) = "quiz/${id.name}/$topic/$level"
@@ -134,13 +134,19 @@ fun TopoApp() {
                     Routes.PRACTICE_PLAY,
                     arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("difficulty") { type = NavType.StringType }),
                 ) { e ->
-                    val k = runCatching { Challenge.Kind.valueOf(e.arguments?.getString("kind") ?: "NEIGHBOURS") }.getOrDefault(Challenge.Kind.NEIGHBOURS)
+                    val kind = e.arguments?.getString("kind") ?: "NEIGHBOURS"
                     val d = runCatching { Difficulty.valueOf(e.arguments?.getString("difficulty") ?: "EASY") }.getOrDefault(Difficulty.EASY)
+                    val hard = d == Difficulty.HARD
                     Box(Modifier.statusBarsPadding()) {
-                        when (k) {
-                            Challenge.Kind.ROUTE -> PuzzleScreen(PuzzleKind.ROUTE, hard = d == Difficulty.HARD, onBack = { nav.popBackStack() })
-                            Challenge.Kind.MYSTERY -> PuzzleScreen(PuzzleKind.MYSTERY, hard = d == Difficulty.HARD, onBack = { nav.popBackStack() })
-                            else -> PracticeChallengeScreen(k, d, onBack = { nav.popBackStack() })
+                        when (kind) {
+                            "ROUTE" -> PuzzleScreen(PuzzleKind.ROUTE, hard = hard, onBack = { nav.popBackStack() })
+                            "MYSTERY" -> PuzzleScreen(PuzzleKind.MYSTERY, hard = hard, onBack = { nav.popBackStack() })
+                            "FLAG_ZOOM" -> PuzzleScreen(PuzzleKind.FLAG_ZOOM, hard = hard, onBack = { nav.popBackStack() })
+                            "FLAG_CLUES" -> PuzzleScreen(PuzzleKind.FLAG_CLUES, hard = hard, onBack = { nav.popBackStack() })
+                            else -> {
+                                val k = runCatching { Challenge.Kind.valueOf(kind) }.getOrDefault(Challenge.Kind.NEIGHBOURS)
+                                PracticeChallengeScreen(k, d, onBack = { nav.popBackStack() })
+                            }
                         }
                     }
                 }
