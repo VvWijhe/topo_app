@@ -73,7 +73,7 @@ class NederlandMap(val geo: GeoMap, val islands: Map<String, GeoShape>)
 
 /** Laadt kaartdata uit de app-assets en houdt ze in het geheugen. */
 @Serializable
-private data class FlagJson(val c: List<String> = emptyList(), val t: List<String> = emptyList(), val z: List<List<Float>> = emptyList(), val r: Float = 1.5f)
+private data class FlagJson(val c: List<String> = emptyList(), val a: List<String> = emptyList(), val t: List<String> = emptyList(), val z: List<List<Float>> = emptyList(), val r: Float = 1.5f)
 
 class GeoRepository(private val assets: AssetManager) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -143,7 +143,7 @@ class GeoRepository(private val assets: AssetManager) {
                 json.decodeFromString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), FlagJson.serializer()), t)
             }.getOrDefault(emptyMap())
             val flags = countries.values.mapNotNull { c ->
-                flagRaw[c.iso2.uppercase()]?.let { f -> c.code to FlagInfo(f.c.toSet(), f.t.toSet(), f.z.map { Offset(it[0], it[1]) }, f.r) }
+                flagRaw[c.iso2.uppercase()]?.let { f -> c.code to FlagInfo(f.c.toSet(), f.t.toSet(), f.z.map { Offset(it[0], it[1]) }, f.r, (f.a + f.c).toSet()) }
             }.toMap()
             WorldMap(
                 geo, countries, continents,

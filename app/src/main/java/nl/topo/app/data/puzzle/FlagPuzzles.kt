@@ -156,7 +156,8 @@ object FlagFeatures {
     /** Precies deze kleuren en geen andere. */
     data class OnlyColors(val colors: Set<String>) : Rule {
         override val title get() = FlagWords.colors(FlagWords.colorOrder.filter { it in colors }).let { Txt("only ${it.en}", "alleen ${it.nl}") }
-        override fun test(f: FlagInfo) = f.colors == colors
+        // Ook kleine details tellen (de gele zon van Argentinië), en een embleem heeft vrijwel altijd andere kleuren.
+        override fun test(f: FlagInfo) = f.allColors == colors && "emblem" !in f.tags
     }
 
     private val tagRules = listOf("star", "crescent", "sun", "cross", "circle", "triangle", "diagonal", "emblem", "animal", "weapon", "plant", "h", "v", "union", "nordic").map { Has(it) }

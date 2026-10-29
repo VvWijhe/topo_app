@@ -55,7 +55,11 @@ data class Country(
  * circle, triangle, diagonal, emblem, animal, weapon, plant, text, map, building.
  * [spots]: interessante punten (0..1) voor een uitsnede; [ratio]: breedte/hoogte.
  */
-data class FlagInfo(val colors: Set<String>, val tags: Set<String>, val spots: List<Offset>, val ratio: Float)
+data class FlagInfo(
+    val colors: Set<String>, val tags: Set<String>, val spots: List<Offset>, val ratio: Float,
+    /** Alle kleuren, ook kleine details (zon, ster, embleem). */
+    val allColors: Set<String> = colors,
+)
 
 data class ContinentInfo(val continent: Continent, val names: Txt, val viewport: Rect, val center: Offset) {
     fun name(lang: Lang): String = names[lang]

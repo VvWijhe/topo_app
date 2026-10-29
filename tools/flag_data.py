@@ -59,8 +59,28 @@ for f in sorted(os.listdir(root)):
         if all(abs(x - a) + abs(y - b) > 0.25 for a, b in picked): picked.append((round(x, 3), round(y, 3)))
         if len(picked) == 4: break
     colors = [c for c in colors if c not in DROP.get(code, [])]
+    # Alle kleuren, ook kleine details (zon, ster, embleem): op ware grootte, alleen 'binnenpixels'
+    # (gelijk aan de buren rechts en onder), zodat de vervaagde randen tussen twee kleuren niet meetellen.
+    full = im.resize((im.size[0] // 2, im.size[1] // 2), Image.NEAREST)
+    FW, FH = full.size
+    fp = full.load()
+    allc = {}
+    inner = 0
+    # Vergelijk op kleurnaam (niet op exacte RGB): webp is licht verlossy, dus exacte gelijkheid komt weinig voor.
+    names = [[nearest(fp[x, y]) for x in range(FW)] for y in range(FH)]
+    for y in range(FH - 1):
+        for x in range(FW - 1):
+            n = names[y][x]
+            if n != names[y][x + 1] or n != names[y + 1][x]: continue
+            inner += 1
+            allc[n] = allc.get(n, 0) + 1
+    all_colors = sorted([n for n, k in allc.items() if k / max(inner, 1) >= 0.003], key=lambda n: -allc[n])
+    all_colors = [c for c in all_colors if c not in DROP.get(code, [])]
+    if code in AS_BLUE: all_colors = list(dict.fromkeys(['blue' if c == 'black' else c for c in all_colors]))
     if code in AS_BLUE: colors = list(dict.fromkeys(['blue' if c == 'black' else c for c in colors]))
-    out[code] = {'c': colors, 't': tags.get(code, []), 'z': picked, 'r': round(im.size[0] / im.size[1], 3)}
+    for c in colors:
+        if c not in all_colors: all_colors.append(c)
+    out[code] = {'c': colors, 'a': all_colors, 't': tags.get(code, []), 'z': picked, 'r': round(im.size[0] / im.size[1], 3)}
 missing = [c for c in out if c not in tags]
 print('vlaggen', len(out), 'zonder tags', missing)
 json.dump(out, open(os.path.join(root, 'flagdata.json'), 'w'), separators=(',', ':'))
