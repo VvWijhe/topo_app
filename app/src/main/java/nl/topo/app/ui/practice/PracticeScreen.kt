@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.ZoomIn
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.EmojiNature
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +51,6 @@ private val types = listOf(
     PracticeType("TOP", Icons.Rounded.FormatListNumbered, Txt("Top lists", "Toplijsten"), Txt("The biggest countries of a continent, by people or by area.", "De grootste landen van een werelddeel, naar inwoners of oppervlakte.")),
     PracticeType("LINE", Icons.Rounded.Public, Txt("Lines on the globe", "Lijnen over de wereld"), Txt("Every country on the equator, a tropic, the Arctic Circle or Greenwich.", "Alle landen op de evenaar, een keerkring, de poolcirkel of Greenwich.")),
     PracticeType("ROUTE", Icons.Rounded.Route, Txt("Route", "Route"), Txt("The shortest route over land between two countries. Easy: 3–5 countries in between. Hard: 6–9.", "De kortste route over land tussen twee landen. Makkelijk: 3–5 landen ertussen. Moeilijk: 6–9.")),
-    PracticeType("FLAG_SHOW", Icons.Rounded.EmojiNature, Txt("Flag Facts with Pico", "Vlaggenweetjes met Pico"), Txt("A little quiz show: 8 questions, and after each one a fun fact about flags.", "Een kleine quizshow: 8 vragen, en na elke vraag een leuk weetje over vlaggen."), levels = false),
     PracticeType("FLAG_ZOOM", Icons.Rounded.ZoomIn, Txt("Flag close-up", "Vlag van dichtbij"), Txt("Guess the country from a small piece of its flag. Every wrong guess zooms out.", "Raad het land aan een klein stukje van de vlag. Elke foute gok zoomt uit.")),
     PracticeType("FLAG_CLUES", Icons.Rounded.Description, Txt("Flag description", "Vlag-omschrijving"), Txt("Guess the country from clues about its flag: colours, stripes, stars…", "Raad het land aan aanwijzingen over de vlag: kleuren, strepen, sterren…")),
     PracticeType("FLAG_FEATURE", Icons.Rounded.Flag, Txt("Flag features", "Vlagkenmerken"), Txt("Name every country whose flag has a star, a crescent, only red and white…", "Noem alle landen met een ster, een maansikkel, alleen rood en wit… in de vlag.")),

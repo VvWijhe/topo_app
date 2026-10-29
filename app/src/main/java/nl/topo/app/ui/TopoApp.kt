@@ -143,7 +143,6 @@ fun TopoApp() {
                             "MYSTERY" -> PuzzleScreen(PuzzleKind.MYSTERY, hard = hard, onBack = { nav.popBackStack() })
                             "FLAG_ZOOM" -> PuzzleScreen(PuzzleKind.FLAG_ZOOM, hard = hard, onBack = { nav.popBackStack() })
                             "FLAG_CLUES" -> PuzzleScreen(PuzzleKind.FLAG_CLUES, hard = hard, onBack = { nav.popBackStack() })
-                            "FLAG_SHOW" -> nl.topo.app.ui.puzzle.FlagShowScreen(onBack = { nav.popBackStack() })
                             else -> {
                                 val k = runCatching { Challenge.Kind.valueOf(kind) }.getOrDefault(Challenge.Kind.NEIGHBOURS)
                                 PracticeChallengeScreen(k, d, onBack = { nav.popBackStack() })
