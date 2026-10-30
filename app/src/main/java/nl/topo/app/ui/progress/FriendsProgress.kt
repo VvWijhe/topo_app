@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -162,18 +161,10 @@ private fun FriendDetail(st: PlayerStats, me: PlayerStats, onDismiss: () -> Unit
                             Text("$n / ${r.cellCount}", style = MaterialTheme.typography.bodySmall, color = Night.muted)
                         }
                         Spacer(Modifier.height(3.dp))
-                        Box {
-                            LinearProgressIndicator(
-                                progress = { n.toFloat() / total }, color = Night.gold, trackColor = Night.outline,
-                                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
-                            )
-                        }
+                        Bar(n.toFloat() / total, Night.gold, Night.outline, 5.dp)
                         if (!isMe) {
                             Spacer(Modifier.height(2.dp))
-                            LinearProgressIndicator(
-                                progress = { mine.toFloat() / total }, color = Night.glow, trackColor = Night.outline.copy(alpha = 0.4f),
-                                modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(50)),
-                            )
+                            Bar(mine.toFloat() / total, Night.glow, Night.outline.copy(alpha = 0.4f), 3.dp)
                         }
                     }
                 }
@@ -188,5 +179,14 @@ private fun Stat(value: String, label: String) {
     Column {
         Text(value, style = MaterialTheme.typography.titleLarge, color = Night.text)
         Text(label, style = MaterialTheme.typography.bodySmall, color = Night.muted)
+    }
+}
+
+
+/** Eenvoudige voortgangsbalk (zonder het eindpuntje en de opening van de Material-balk). */
+@Composable
+private fun Bar(fraction: Float, color: androidx.compose.ui.graphics.Color, track: androidx.compose.ui.graphics.Color, height: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(50)).background(track)) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(height).clip(RoundedCornerShape(50)).background(color))
     }
 }
